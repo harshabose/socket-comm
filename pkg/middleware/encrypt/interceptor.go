@@ -2,21 +2,24 @@ package encrypt
 
 import (
 	"context"
+	"time"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/config"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyexchange"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyprovider"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/state"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/types"
 )
 
 type Interceptor struct {
 	interceptor.NoOpInterceptor
 	nonceValidator     NonceValidator
-	keyExchangeManager keyexchange.Manager
+	keyExchangeManager interfaces.KeyExchangeManager
 	keyProvider        keyprovider.KeyProvider
-	stateManager       state.Manager
+	stateManager       interfaces.StateManager
 	config             config.Config
 }
 
@@ -36,14 +39,21 @@ func (i *Interceptor) BindSocketConnection(connection interceptor.Connection, wr
 }
 
 func (i *Interceptor) Init(connection interceptor.Connection) error {
-	_state, err := i.stateManager.GetState(connection)
+	s, err := i.stateManager.GetState(connection)
 	if err != nil {
 		return err
 	}
 
-	if err := i.keyExchangeManager.Init(_state, keyexchange.WithKeySignature(i.keyProvider)); err != nil {
+	if err := i.keyExchangeManager.Init(s, keyexchange.WithKeySignature(i.keyProvider)); err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithTimeout(i.Ctx, 10*time.Second)
+	defer cancel()
+
+	waiter := keyexchange.NewSessionStateTargetWaiter(ctx, types.SessionStateCompleted)
+
+	return i.Process(waiter, s)
 }
 
 func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) interceptor.Writer {
@@ -62,16 +72,15 @@ func (i *Interceptor) Close() error {
 
 }
 
-func GetState(_i interceptor.Interceptor, connection interceptor.Connection) (*state.State, error) {
-	i, ok := _i.(*Interceptor)
+func (i *Interceptor) GetState(connection interceptor.Connection) (interfaces.State, error) {
+	return i.stateManager.GetState(connection)
+}
+
+func (i *Interceptor) Process(msg interfaces.CanProcess, state interfaces.State) error {
+	processor, ok := i.keyExchangeManager.(interfaces.ProtocolProcessor)
 	if !ok {
-		return nil, encryptionerr.ErrInvalidInterceptor
+		return encryptionerr.ErrInvalidMessageType
 	}
 
-	s, err := i.stateManager.GetState(connection)
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	return processor.Process(msg, state)
 }

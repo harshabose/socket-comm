@@ -9,7 +9,7 @@ import (
 // NonceValidator provides protection against replay attacks
 type NonceValidator interface {
 	// Validate checks if a nonce is valid and hasn't been seen before
-	Validate(nonce []byte, sessionID types.SessionID) error
+	Validate(nonce []byte, sessionID types.EncryptionSessionID) error
 
 	// Cleanup removes expired nonces
 	Cleanup(before time.Time)

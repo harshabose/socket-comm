@@ -5,7 +5,7 @@ type (
 	PrivateKey           [32]byte
 	PublicKey            [32]byte
 	Salt                 [16]byte
-	SessionID            [16]byte
+	EncryptionSessionID  [16]byte
 	Nonce                [12]byte
 	Key                  [32]byte
 	KeyExchangeProtocol  string

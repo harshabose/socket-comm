@@ -11,22 +11,23 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/config"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptor"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/types"
 )
 
 type State struct {
-	InterceptorConfig    config.Config // copy of interceptor config
-	PeerID               message.Receiver
-	privKey              types.PrivateKey // also in protocol curve25519protocol.go
-	salt                 types.Salt       // also in protocol curve25519protocol.go
-	sessionID            types.SessionID  // encryption sessionID
-	encryptor            encryptor.Encryptor
-	Connection           interceptor.Connection
-	Writer               interceptor.Writer
-	Reader               interceptor.Reader
+	currentConfig        config.Config // copy of interceptor config
+	peerID               message.Receiver
+	privKey              types.PrivateKey          // also in protocol curve25519protocol.go
+	salt                 types.Salt                // also in protocol curve25519protocol.go
+	encryptSessionID     types.EncryptionSessionID // encryption encryptSessionID
+	encryptor            interfaces.Encryptor
+	connection           interceptor.Connection
+	writer               interceptor.Writer
+	reader               interceptor.Reader
 	cancel               context.CancelFunc
 	ctx                  context.Context
-	KeyExchangeSessionID types.KeyExchangeSessionID // Used for key exchange tracking
+	keyExchangeSessionID types.KeyExchangeSessionID // Used for key exchange tracking
 	mux                  sync.RWMutex
 }
 
@@ -37,24 +38,56 @@ func NewState(ctx context.Context, cancel context.CancelFunc, config config.Conf
 	}
 
 	return &State{
-		InterceptorConfig: config,
-		peerID:            message.UnknownReceiver,
-		privKey:           types.PrivateKey{},
-		salt:              types.Salt{},
-		encryptor:         newEncryptor,
-		Connection:        connection,
-		Writer:            writer,
-		Reader:            reader,
-		cancel:            cancel,
-		ctx:               ctx,
+		currentConfig: config,
+		peerID:        message.UnknownReceiver,
+		privKey:       types.PrivateKey{},
+		salt:          types.Salt{},
+		encryptor:     newEncryptor,
+		connection:    connection,
+		writer:        writer,
+		reader:        reader,
+		cancel:        cancel,
+		ctx:           ctx,
 	}, nil
 }
 
 func (s *State) GenerateKeyExchangeSessionID() types.KeyExchangeSessionID {
-	if s.KeyExchangeSessionID != "" {
-		fmt.Println("KeyExchangeSessionID already exists; creating new")
-	}
-	s.KeyExchangeSessionID = types.KeyExchangeSessionID(uuid.NewString())
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	return s.KeyExchangeSessionID
+	if s.keyExchangeSessionID != "" {
+		fmt.Println("keyExchangeSessionID already exists; creating new")
+	}
+	s.keyExchangeSessionID = types.KeyExchangeSessionID(uuid.NewString())
+
+	return s.keyExchangeSessionID
+}
+
+func (s *State) WriteMessage(msg interceptor.Message) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	msg.SetReceiver(s.peerID)
+	return s.writer.Write(s.connection, msg)
+}
+
+func (s *State) GetKeyExchangeSessionID() types.KeyExchangeSessionID {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.keyExchangeSessionID
+}
+
+func (s *State) GetConfig() config.Config {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.currentConfig
+}
+
+func (s *State) SetKeys(encKey, decKey types.Key) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.encryptor.SetKeys(encKey, decKey)
 }

@@ -39,6 +39,9 @@ type Message interface {
 	//
 	// Returns an error if processing fails
 	ReadProcess(Interceptor, Connection) error
+
+	SetReceiver(message.Receiver)
+	SetSender(message.Sender)
 }
 
 // BaseMessage provides a default implementation of the Message interface.
@@ -93,4 +96,12 @@ func (m *BaseMessage) ReadProcess(_ Interceptor, _ Connection) error {
 	// Default implementation does nothing
 	// Derived-types should override this method with specific processing logic
 	return nil
+}
+
+func (m *BaseMessage) SetSender(sender message.Sender) {
+	m.CurrentHeader.Sender = sender
+}
+
+func (m *BaseMessage) SetReceiver(receiver message.Receiver) {
+	m.CurrentHeader.Receiver = receiver
 }

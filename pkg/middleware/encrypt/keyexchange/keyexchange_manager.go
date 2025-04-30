@@ -9,13 +9,13 @@ import (
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
-	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/state"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/types"
 )
 
 type Session struct {
-	protocol    Protocol
-	state       *state.State
+	protocol    interfaces.Protocol
+	state       interfaces.State
 	createdAt   time.Time
 	completedAt time.Time
 }
@@ -25,16 +25,16 @@ type Manager struct {
 	sessions map[types.KeyExchangeSessionID]*Session
 }
 
-func (m *Manager) Init(s *state.State, options ...ProtocolFactoryOption) error {
+func (m *Manager) Init(s interfaces.State, options ...interfaces.ProtocolFactoryOption) error {
 	sessionID := s.GenerateKeyExchangeSessionID()
 	_, exists := m.sessions[sessionID]
 	if exists {
 		return encryptionerr.ErrExchangeInProgress
 	}
 
-	factory, exists := m.registry[s.InterceptorConfig.EncryptionProtocol.KeyExchangeProtocol]
+	factory, exists := m.registry[s.GetConfig().EncryptionProtocol.KeyExchangeProtocol]
 	if !exists {
-		return fmt.Errorf("%w: %s", encryptionerr.ErrProtocolNotFound, s.InterceptorConfig.EncryptionProtocol.KeyExchangeProtocol)
+		return fmt.Errorf("%w: %s", encryptionerr.ErrProtocolNotFound, s.GetConfig().EncryptionProtocol.KeyExchangeProtocol)
 	}
 
 	p, err := factory(options...)
@@ -55,13 +55,18 @@ func (m *Manager) Init(s *state.State, options ...ProtocolFactoryOption) error {
 	return nil
 }
 
-func (m *Manager) Process(s *state.State, msg MessageProcessor) error {
-	session, exists := m.sessions[s.KeyExchangeSessionID]
+func (m *Manager) Process(msg interfaces.CanProcess, s interfaces.State) error {
+	session, exists := m.sessions[s.GetKeyExchangeSessionID()]
 	if !exists {
 		return encryptionerr.ErrSessionNotFound
 	}
 
-	return session.protocol.Process(msg, s)
+	processor, ok := session.protocol.(interfaces.ProtocolProcessor)
+	if !ok {
+		return encryptionerr.ErrInvalidMessageType
+	}
+
+	return processor.Process(msg, s)
 }
 
 // Derive generates encryption keys from shared secret

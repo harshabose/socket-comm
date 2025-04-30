@@ -56,14 +56,14 @@ type BaseMessage struct {
 }
 
 // NewBaseMessage creates a properly initialized interceptor BaseMessage for the key exchange module
-func NewBaseMessage(protocol message.Protocol, sender message.Sender, receiver message.Receiver) BaseMessage {
-	return BaseMessage{
-		BaseMessage: message.BaseMessage{
-			CurrentProtocol: protocol,
-			CurrentHeader:   message.NewV1Header(sender, receiver),
-			NextProtocol:    message.NoneProtocol,
-		},
+func NewBaseMessage(nextProtocol message.Protocol, nextPayload message.Message, msg Message) (BaseMessage, error) {
+	bmsg, err := message.NewBaseMessage(nextProtocol, nextPayload, msg)
+	if err != nil {
+		return BaseMessage{}, nil
 	}
+	return BaseMessage{
+		BaseMessage: bmsg,
+	}, nil
 }
 
 // WriteProcess handles interceptor processing for outgoing messages.

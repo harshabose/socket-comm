@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
+	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/types"
@@ -145,6 +146,19 @@ func (m *Response) Process(protocol interfaces.Protocol, s interfaces.State) err
 type Done struct {
 	interceptor.BaseMessage
 	Timestamp time.Time `json:"timestamp"`
+}
+
+func NewDone() (*Done, error) {
+	msg := &Done{
+		Timestamp: time.Now(),
+	}
+	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
+	if err != nil {
+		return nil, err
+	}
+	msg.BaseMessage = bmsg
+
+	return msg, nil
 }
 
 func (m *Done) WriteProcess(_ interceptor.Interceptor, _ interceptor.Connection) error {

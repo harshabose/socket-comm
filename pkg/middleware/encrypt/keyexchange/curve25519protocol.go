@@ -51,9 +51,14 @@ func (p *Curve25519Protocol) Init(s interfaces.State) error {
 			return err
 		}
 
-		_ = ed25519.Sign(p.options.SigningKey, append(p.pubKey[:], p.salt[:]...))
+		sign := ed25519.Sign(p.options.SigningKey, append(p.pubKey[:], p.salt[:]...))
 
-		if err := s.WriteMessage(nil); err != nil { // TODO: SEND INIT MESSAGE
+		msg, err := NewInit(p.pubKey, sign, p.sessionID, p.salt)
+		if err != nil {
+			return err
+		}
+
+		if err := s.WriteMessage(msg); err != nil {
 			p.state = types.SessionStateError
 			return err
 		}

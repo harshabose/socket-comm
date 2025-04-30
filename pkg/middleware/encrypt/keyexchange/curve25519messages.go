@@ -23,6 +23,23 @@ type Init struct {
 	Salt      types.Salt                `json:"salt"`
 }
 
+func NewInit(pubKey types.PublicKey, sign []byte, sessionID types.EncryptionSessionID, salt types.Salt) (*Init, error) {
+	msg := &Init{
+		PublicKey: pubKey,
+		Signature: sign,
+		SessionID: sessionID,
+		Salt:      salt,
+	}
+
+	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
+	if err != nil {
+		return nil, err
+	}
+	msg.BaseMessage = bmsg
+
+	return msg, nil
+}
+
 func (m *Init) WriteProcess(_ interceptor.Interceptor, _ interceptor.Connection) error {
 	return nil
 }
@@ -76,9 +93,14 @@ func (m *Init) Process(protocol interfaces.Protocol, s interfaces.State) error {
 	p.decKey = decKey
 	p.sessionID = m.SessionID
 
-	if err := s.WriteMessage(nil); err != nil {
+	msg, err := NewResponse(p.pubKey)
+	if err != nil {
+		return err
+	}
 
-	} // TODO: ADD RESPONSE MESSAGE
+	if err := s.WriteMessage(msg); err != nil {
+		return err
+	}
 
 	p.state = types.SessionStateInProgress
 	return nil
@@ -87,6 +109,20 @@ func (m *Init) Process(protocol interfaces.Protocol, s interfaces.State) error {
 type Response struct {
 	interceptor.BaseMessage
 	PublicKey types.PublicKey `json:"public_key"`
+}
+
+func NewResponse(pubKey types.PublicKey) (*Response, error) {
+	msg := &Response{
+		PublicKey: pubKey,
+	}
+
+	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
+	if err != nil {
+		return nil, err
+	}
+	msg.BaseMessage = bmsg
+
+	return msg, nil
 }
 
 func (m *Response) WriteProcess(_ interceptor.Interceptor, _ interceptor.Connection) error {
@@ -135,9 +171,14 @@ func (m *Response) Process(protocol interfaces.Protocol, s interfaces.State) err
 	p.encKey = encKey
 	p.decKey = decKey
 
-	if err := s.WriteMessage(nil); err != nil {
+	msg, err := NewDone()
+	if err != nil {
 		return err
-	} // TODO: Send Done message
+	}
+
+	if err := s.WriteMessage(msg); err != nil {
+		return err
+	}
 
 	p.state = types.SessionStateInProgress
 	return nil

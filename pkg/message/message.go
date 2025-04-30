@@ -5,6 +5,7 @@ package message
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 // Type aliases for improved readability and type safety
@@ -33,8 +34,11 @@ const (
 	// Version1 is the current message protocol version
 	Version1 Version = "v1.0"
 
+	// UnknownSender senderID initialising
+	UnknownSender Sender = "unknown.sender"
+
 	// UnknownReceiver receiverID initialising
-	UnknownReceiver Receiver = "unknown"
+	UnknownReceiver Receiver = "unknown.receiver"
 )
 
 // Message defines the interface that all message types must implement.
@@ -114,4 +118,25 @@ func (m *BaseMessage) Marshal() ([]byte, error) {
 // Unmarshal deserializes the message from JSON format
 func (m *BaseMessage) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, m)
+}
+
+func NewBaseMessage(nextProtocol Protocol, nextPayload Message, msg Message) (BaseMessage, error) {
+	var inner json.RawMessage = nil
+	if nextPayload != nil {
+		if nextProtocol == NoneProtocol {
+			return BaseMessage{}, fmt.Errorf("nextPayload was empty, but protocol was not - protocol: %s", nextProtocol)
+		}
+		_inner, err := nextPayload.Marshal()
+		if err != nil {
+			return BaseMessage{}, err
+		}
+		inner = _inner
+	}
+
+	return BaseMessage{
+		CurrentProtocol: msg.GetProtocol(),
+		CurrentHeader:   NewV1Header(UnknownSender, UnknownReceiver),
+		NextPayload:     inner,
+		NextProtocol:    nextProtocol,
+	}, nil
 }

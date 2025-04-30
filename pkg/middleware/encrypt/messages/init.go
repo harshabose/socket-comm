@@ -45,12 +45,7 @@ func (m *Init) WriteProcess(_ interceptor.Interceptor, _ interceptor.Connection)
 }
 
 func (m *Init) ReadProcess(_interceptor interceptor.Interceptor, connection interceptor.Connection) error {
-	i, ok := _interceptor.(*encrypt.Interceptor)
-	if !ok {
-		return encryptionerr.ErrInvalidInterceptor
-	}
-
-	s, err := i.stateManager.GetState(connection)
+	s, err := encrypt.GetState(_interceptor, connection)
 	if err != nil {
 		return err
 	}

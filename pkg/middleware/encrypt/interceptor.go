@@ -5,6 +5,7 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/config"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyexchange"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyprovider"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/state"
@@ -59,4 +60,18 @@ func (i *Interceptor) UnBindSocketConnection(connection interceptor.Connection) 
 
 func (i *Interceptor) Close() error {
 
+}
+
+func GetState(_i interceptor.Interceptor, connection interceptor.Connection) (*state.State, error) {
+	i, ok := _i.(*Interceptor)
+	if !ok {
+		return nil, encryptionerr.ErrInvalidInterceptor
+	}
+
+	s, err := i.stateManager.GetState(connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }

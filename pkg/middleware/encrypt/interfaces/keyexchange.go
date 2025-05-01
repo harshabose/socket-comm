@@ -10,6 +10,7 @@ type ProtocolProcessor interface {
 
 type KeyExchangeManager interface {
 	Init(state State, options ...ProtocolFactoryOption) error
+	Finalise(state State) error
 }
 
 type CanGetSessionState interface {

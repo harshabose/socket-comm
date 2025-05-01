@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
+	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/config"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
@@ -53,23 +54,71 @@ func (i *Interceptor) Init(connection interceptor.Connection) error {
 
 	waiter := keyexchange.NewSessionStateTargetWaiter(ctx, types.SessionStateCompleted)
 
-	return i.Process(waiter, s)
+	if err := i.Process(waiter, s); err != nil {
+		return err
+	}
+
+	return i.keyExchangeManager.Finalise(s)
 }
 
 func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) interceptor.Writer {
+	return interceptor.WriterFunc(func(conn interceptor.Connection, msg message.Message) error {
+		s, err := i.GetState(conn)
+		if err != nil {
+			return err
+		}
 
+		ss, ok := s.(interfaces.CanEncrypt)
+		if !ok {
+			return err
+		}
+
+		encrypted, err := ss.Encrypt(msg)
+		if err != nil {
+			if !s.GetConfig().RequireEncryption {
+				return writer.Write(conn, msg)
+			}
+			return err
+		}
+
+		return writer.Write(conn, encrypted)
+	})
 }
 
 func (i *Interceptor) InterceptSocketReader(reader interceptor.Reader) interceptor.Reader {
+	return interceptor.ReaderFunc(func(conn interceptor.Connection) (message.Message, error) {
+		msg, err := reader.Read(conn)
+		if err != nil {
+			return msg, err
+		}
 
+		s, err := i.GetState(conn)
+		if err != nil {
+			return nil, err
+		}
+
+		ss, ok := s.(interfaces.CanDecrypt)
+		if !ok {
+			return msg, err
+		}
+
+		m, err := ss.Decrypt(msg)
+		if err != nil {
+			return nil, err
+		}
+
+		return m, nil
+	})
 }
 
 func (i *Interceptor) UnBindSocketConnection(connection interceptor.Connection) {
-
+	// TODO: Implement full closing
 }
 
 func (i *Interceptor) Close() error {
-
+	// TODO: Use UnBindSocketConnection to close all
+	// TODO: Close interceptor
+	return nil
 }
 
 func (i *Interceptor) GetState(connection interceptor.Connection) (interfaces.State, error) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"sync"
+
+	"github.com/harshabose/socket-comm/pkg/message"
 )
 
 type Registry struct {
@@ -56,29 +58,34 @@ type Interceptor interface {
 }
 
 type Writer interface {
-	Write(conn Connection, message Message) error
+	Write(conn Connection, message message.Message) error
 }
 
 type Reader interface {
-	Read(conn Connection) (Message, error)
+	Read(conn Connection) (message.Message, error)
 }
 
-type ReaderFunc func(conn Connection) (Message, error)
+type ReaderFunc func(conn Connection) (message.Message, error)
 
-func (f ReaderFunc) Read(conn Connection) (Message, error) {
+func (f ReaderFunc) Read(conn Connection) (message.Message, error) {
 	return f(conn)
 }
 
-type WriterFunc func(conn Connection, message Message) error
+type WriterFunc func(conn Connection, message message.Message) error
 
-func (f WriterFunc) Write(conn Connection, message Message) error {
+func (f WriterFunc) Write(conn Connection, message message.Message) error {
 	return f(conn, message)
 }
 
 type NoOpInterceptor struct {
-	ID    string
-	Mutex sync.RWMutex
-	Ctx   context.Context
+	ID              string
+	messageRegistry message.Registry
+	Mutex           sync.RWMutex
+	Ctx             context.Context
+}
+
+func (interceptor *NoOpInterceptor) GetMessageRegistry() message.Registry {
+	return interceptor.messageRegistry
 }
 
 func (interceptor *NoOpInterceptor) BindSocketConnection(_ Connection, _ Writer, _ Reader) (Writer, Reader, error) {

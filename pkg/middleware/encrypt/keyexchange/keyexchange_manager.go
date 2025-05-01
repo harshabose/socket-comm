@@ -55,6 +55,31 @@ func (m *Manager) Init(s interfaces.State, options ...interfaces.ProtocolFactory
 	return nil
 }
 
+func (m *Manager) Finalise(s interfaces.State) error {
+	sessionID := s.GetKeyExchangeSessionID()
+	session, exists := m.sessions[sessionID]
+	if !exists {
+		return encryptionerr.ErrExchangeNotComplete
+	}
+
+	ss, ok := s.(interfaces.KeySetter)
+	if !ok {
+		return encryptionerr.ErrInvalidInterceptor
+	}
+
+	p, ok := (session.protocol).(interfaces.KeyGetter)
+	if !ok {
+		return encryptionerr.ErrInvalidInterceptor
+	}
+
+	encKey, decKey, err := p.GetKeys()
+	if err != nil {
+		return err
+	}
+
+	return ss.SetKeys(encKey, decKey)
+}
+
 func (m *Manager) Process(msg interfaces.CanProcess, s interfaces.State) error {
 	session, exists := m.sessions[s.GetKeyExchangeSessionID()]
 	if !exists {

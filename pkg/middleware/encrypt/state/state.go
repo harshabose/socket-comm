@@ -91,3 +91,7 @@ func (s *State) SetKeys(encKey, decKey types.Key) error {
 
 	return s.encryptor.SetKeys(encKey, decKey)
 }
+
+func (s *State) Decrypt(msg message.Message) (message.Message, error) {
+	return s.encryptor.Decrypt(msg)
+}

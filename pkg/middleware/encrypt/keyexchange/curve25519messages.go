@@ -225,19 +225,48 @@ func (m *Done) ReadProcess(_i interceptor.Interceptor, connection interceptor.Co
 	return pp.Process(m, s)
 }
 
-func (m *Done) Process(protocol interfaces.Protocol, _s interfaces.State) error {
-	ss, ok := _s.(interfaces.KeySetter)
-	if !ok {
-		return encryptionerr.ErrInvalidInterceptor
-	}
-
+func (m *Done) Process(protocol interfaces.Protocol, s interfaces.State) error {
 	p, ok := protocol.(*Curve25519Protocol)
 	if !ok {
 		return encryptionerr.ErrInvalidMessageType
 	}
 
-	if err := ss.SetKeys(p.encKey, p.decKey); err != nil {
+	msg, err := NewDoneResponse()
+	if err != nil {
 		return err
+	}
+
+	if err := s.WriteMessage(msg); err != nil {
+		return err
+	}
+
+	p.state = types.SessionStateCompleted
+	return nil
+}
+
+type DoneResponse struct {
+	Done
+}
+
+func NewDoneResponse() (*DoneResponse, error) {
+	msg := &DoneResponse{
+		Done: Done{
+			Timestamp: time.Now(),
+		},
+	}
+	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
+	if err != nil {
+		return nil, err
+	}
+	msg.BaseMessage = bmsg
+
+	return msg, nil
+}
+
+func (m *DoneResponse) Process(protocol interfaces.Protocol, s interfaces.State) error {
+	p, ok := protocol.(*Curve25519Protocol)
+	if !ok {
+		return encryptionerr.ErrInvalidMessageType
 	}
 
 	p.state = types.SessionStateCompleted

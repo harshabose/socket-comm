@@ -16,18 +16,24 @@ type KeyGetter interface {
 	GetKeys() (encKey, decKey types.Key, err error)
 }
 
+type CanEncrypt interface {
+	// Encrypt encrypts a message between sender and receiver
+	Encrypt(message message.Message) (message.Message, error)
+}
+
+type CanDecrypt interface {
+	// Decrypt decrypts an encrypted message in-place
+	Decrypt(message message.Message) (message.Message, error)
+}
+
 // Encryptor defines the interface for message encryption and decryption
 type Encryptor interface {
 	KeySetter
+	CanEncrypt
+	CanDecrypt
 
 	// SetSessionID sets the session identifier for this encryption session
 	SetSessionID(id types.EncryptionSessionID)
-
-	// Encrypt encrypts a message between sender and receiver
-	Encrypt(senderID, receiverID string, message message.Message) (message.Message, error)
-
-	// Decrypt decrypts an encrypted message in-place
-	Decrypt(message message.Message) error
 
 	// Ready checks if the encryptor is properly initialized and ready to use
 	Ready() bool

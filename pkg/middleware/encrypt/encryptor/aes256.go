@@ -56,25 +56,28 @@ func (a *AES256Encryptor) Encrypt(msg message.Message) (message.Message, error) 
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
+	m, ok := msg.(*EncryptedMessage)
+	if !ok {
+		return nil, encryptionerr.ErrInvalidInterceptor // JUST TO BE SURE
+	}
+
 	nonce := types.Nonce{}
 
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
 		return nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	protocol := msg.GetProtocol()
+	encryptedData := a.encryptor.Seal(nil, nonce[:], m.NextPayload, a.sessionID[:])
 
-	data, err := msg.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal message: %w", err)
-	}
+	m.NextPayload = encryptedData
 
-	encryptedData := a.encryptor.Seal(nil, nonce[:], data, a.sessionID[:])
-
-	return NewEncryptedMessage(encryptedData, protocol, nonce, a.sessionID)
+	return m, nil
 }
 
 func (a *AES256Encryptor) Decrypt(msg message.Message) (message.Message, error) {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+
 	m, ok := msg.(*EncryptedMessage)
 	if !ok {
 		return nil, encryptionerr.ErrInvalidInterceptor // JUST TO BE SURE

@@ -55,7 +55,7 @@ type BaseMessage struct {
 	message.BaseMessage
 }
 
-func NewBaseMessage(nextProtocol message.Protocol, nextPayload message.Message, msg Message) (BaseMessage, error) {
+func NewBaseMessage(nextProtocol message.Protocol, nextPayload message.Marshallable, msg Message) (BaseMessage, error) {
 	bmsg, err := message.NewBaseMessage(nextProtocol, nextPayload, msg)
 	if err != nil {
 		return BaseMessage{}, nil

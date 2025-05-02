@@ -21,6 +21,8 @@ type Registry interface {
 	// Returns an error if the protocol is already registered
 	Register(Protocol, Factory) error
 
+	Check(protocol Protocol) bool
+
 	// Create instantiates a new message for the given protocol
 	// Returns an error if the protocol is not registered
 	Create(Protocol) (Message, error)
@@ -63,6 +65,14 @@ func NewRegistry() *DefaultRegistry {
 	return &DefaultRegistry{
 		factories: make(map[Protocol]Factory),
 	}
+}
+
+func (r *DefaultRegistry) Check(protocol Protocol) bool {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+
+	_, exists := r.factories[protocol]
+	return exists
 }
 
 // Register adds a message factory for a protocol

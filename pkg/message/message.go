@@ -41,6 +41,20 @@ const (
 	UnknownReceiver Receiver = "unknown.receiver"
 )
 
+type Marshallable interface {
+	// Marshal serializes the message to JSON format
+	Marshal() ([]byte, error)
+}
+
+type Unmarshallable interface {
+	// Unmarshal deserializes the message from JSON format
+	Unmarshal([]byte) error
+}
+
+func (p Payload) Marshal() ([]byte, error) {
+	return p, nil
+}
+
 // Message defines the interface that all message types must implement.
 // It provides methods for protocol identification, serialization, and
 // message nesting/unwrapping.
@@ -56,11 +70,9 @@ type Message interface {
 	// Returns nil, nil if there is no next message
 	GetNext(Registry) (Message, error)
 
-	// Marshal serializes the message to JSON format
-	Marshal() ([]byte, error)
+	Marshallable
 
-	// Unmarshal deserializes the message from JSON format
-	Unmarshal([]byte) error
+	Unmarshallable
 }
 
 // Header contains common metadata for all messages
@@ -127,7 +139,7 @@ func (m *BaseMessage) GetNext(registry Registry) (Message, error) {
 		return nil, ErrNoPayload
 	}
 
-	return registry.Unmarshal(m.NextProtocol, json.RawMessage(m.NextPayload))
+	return registry.Unmarshal(m.NextProtocol, m.NextPayload)
 }
 
 // Marshal serializes the message to JSON format
@@ -140,7 +152,7 @@ func (m *BaseMessage) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, m)
 }
 
-func NewBaseMessage(nextProtocol Protocol, nextPayload Message, msg Message) (BaseMessage, error) {
+func NewBaseMessage(nextProtocol Protocol, nextPayload Marshallable, msg Message) (BaseMessage, error) {
 	var inner json.RawMessage = nil
 	if nextPayload != nil {
 		if nextProtocol == NoneProtocol {

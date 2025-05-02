@@ -8,6 +8,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/config"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptionerr"
+	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/encryptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyexchange"
 	"github.com/harshabose/socket-comm/pkg/middleware/encrypt/keyprovider"
@@ -17,15 +18,16 @@ import (
 
 type Interceptor struct {
 	interceptor.NoOpInterceptor
-	nonceValidator     NonceValidator
-	keyExchangeManager interfaces.KeyExchangeManager
-	keyProvider        keyprovider.KeyProvider
-	stateManager       interfaces.StateManager
-	config             config.Config
+	localMessageRegistry message.Registry
+	nonceValidator       NonceValidator
+	keyExchangeManager   interfaces.KeyExchangeManager
+	keyProvider          keyprovider.KeyProvider
+	stateManager         interfaces.StateManager
+	config               config.Config
 }
 
 func (i *Interceptor) BindSocketConnection(connection interceptor.Connection, writer interceptor.Writer, reader interceptor.Reader) (interceptor.Writer, interceptor.Reader, error) {
-	ctx, cancel := context.WithCancel(i.Ctx)
+	ctx, cancel := context.WithCancel(i.Ctx())
 
 	newState, err := state.NewState(ctx, cancel, i.config, connection, writer, reader)
 	if err != nil {
@@ -49,7 +51,7 @@ func (i *Interceptor) Init(connection interceptor.Connection) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(i.Ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(i.Ctx(), 10*time.Second)
 	defer cancel()
 
 	waiter := keyexchange.NewSessionStateTargetWaiter(ctx, types.SessionStateCompleted)
@@ -63,30 +65,20 @@ func (i *Interceptor) Init(connection interceptor.Connection) error {
 
 func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) interceptor.Writer {
 	return interceptor.WriterFunc(func(conn interceptor.Connection, msg message.Message) error {
-		s, err := i.GetState(conn)
+		if i.localMessageRegistry.Check(msg.GetProtocol()) {
+			return writer.Write(conn, msg)
+		}
+
+		m, err := encryptor.NewEncryptedMessage(msg)
 		if err != nil {
 			return err
 		}
 
-		ss, ok := s.(interfaces.CanEncrypt)
-		if !ok {
+		if err := m.WriteProcess(i, conn); err != nil {
 			return err
 		}
 
-		encrypted, err := ss.Encrypt(msg)
-		if err != nil {
-			if !s.GetConfig().RequireEncryption {
-				return writer.Write(conn, msg)
-			}
-			return err
-		}
-
-		iMessage, ok := encrypted.(interceptor.Message)
-		if !ok {
-			return writer.Write(conn)
-		}
-
-		return writer.Write(conn, encrypted)
+		return writer.Write(conn, m)
 	})
 }
 
@@ -97,22 +89,23 @@ func (i *Interceptor) InterceptSocketReader(reader interceptor.Reader) intercept
 			return msg, err
 		}
 
-		s, err := i.GetState(conn)
-		if err != nil {
-			return nil, err
+		if !i.localMessageRegistry.Check(msg.GetProtocol()) {
+			if !i.config.RequireEncryption {
+				return msg, nil
+			}
+			return nil, encryptionerr.ErrInvalidInterceptor
 		}
 
-		ss, ok := s.(interfaces.CanDecrypt)
+		m, ok := msg.(interceptor.Message)
 		if !ok {
-			return msg, err
+			return nil, encryptionerr.ErrInvalidInterceptor
 		}
 
-		m, err := ss.Decrypt(msg)
-		if err != nil {
+		if err := m.ReadProcess(i, conn); err != nil {
 			return nil, err
 		}
 
-		return m, nil
+		return m.GetNext(i.GetMessageRegistry())
 	})
 }
 

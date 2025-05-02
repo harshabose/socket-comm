@@ -81,6 +81,11 @@ func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) intercept
 			return err
 		}
 
+		iMessage, ok := encrypted.(interceptor.Message)
+		if !ok {
+			return writer.Write(conn)
+		}
+
 		return writer.Write(conn, encrypted)
 	})
 }

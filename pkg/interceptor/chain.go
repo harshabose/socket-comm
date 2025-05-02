@@ -3,6 +3,7 @@ package interceptor
 import "github.com/harshabose/socket-comm/internal/util"
 
 type Chain struct {
+	NoOpInterceptor
 	interceptors []Interceptor
 }
 

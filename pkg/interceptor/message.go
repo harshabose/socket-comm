@@ -55,7 +55,6 @@ type BaseMessage struct {
 	message.BaseMessage
 }
 
-// NewBaseMessage creates a properly initialized interceptor BaseMessage for the key exchange module
 func NewBaseMessage(nextProtocol message.Protocol, nextPayload message.Message, msg Message) (BaseMessage, error) {
 	bmsg, err := message.NewBaseMessage(nextProtocol, nextPayload, msg)
 	if err != nil {

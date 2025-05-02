@@ -44,6 +44,12 @@ type Connection interface {
 }
 
 type Interceptor interface {
+	ID() string
+
+	Ctx() context.Context
+
+	GetMessageRegistry() message.Registry
+
 	BindSocketConnection(Connection, Writer, Reader) (Writer, Reader, error)
 
 	Init(Connection) error
@@ -78,10 +84,18 @@ func (f WriterFunc) Write(conn Connection, message message.Message) error {
 }
 
 type NoOpInterceptor struct {
-	ID              string
+	iD              string
 	messageRegistry message.Registry
 	Mutex           sync.RWMutex
-	Ctx             context.Context
+	ctx             context.Context
+}
+
+func (interceptor *NoOpInterceptor) Ctx() context.Context {
+	return interceptor.ctx
+}
+
+func (interceptor *NoOpInterceptor) ID() string {
+	return interceptor.iD
 }
 
 func (interceptor *NoOpInterceptor) GetMessageRegistry() message.Registry {

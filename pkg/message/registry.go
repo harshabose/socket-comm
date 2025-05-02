@@ -27,7 +27,7 @@ type Registry interface {
 
 	// Unmarshal creates and deserializes a message for a protocol
 	// The provided data is parsed into the appropriate message type
-	Unmarshal(Protocol, json.RawMessage) (Message, error)
+	Unmarshal(Protocol, Payload) (Message, error)
 
 	// UnmarshalRaw deserializes a message when the protocol is unknown
 	// It first inspects the envelope to determine the protocol, then unmarshals accordingly
@@ -103,7 +103,7 @@ func (r *DefaultRegistry) Create(protocol Protocol) (Message, error) {
 // Unmarshal creates and deserializes a message for a protocol
 // The provided data is parsed into the appropriate message type
 // This method is thread-safe
-func (r *DefaultRegistry) Unmarshal(protocol Protocol, data json.RawMessage) (Message, error) {
+func (r *DefaultRegistry) Unmarshal(protocol Protocol, data Payload) (Message, error) {
 	msg, err := r.Create(protocol)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (r *DefaultRegistry) Unmarshal(protocol Protocol, data json.RawMessage) (Me
 // It first extracts just the protocol from the data, then creates and unmarshals the appropriate message type
 // This method is particularly useful for handling incoming WebSocket messages
 // This method is thread-safe
-func (r *DefaultRegistry) UnmarshalRaw(data json.RawMessage) (Message, error) {
+func (r *DefaultRegistry) UnmarshalRaw(data Payload) (Message, error) {
 	var envelope Envelope
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return nil, fmt.Errorf("failed to extract protocol: %w", err)

@@ -48,6 +48,10 @@ type Message interface {
 	// GetProtocol returns the protocol identifier for this message
 	GetProtocol() Protocol
 
+	GetNextPayload() (Payload, error)
+
+	GetNextProtocol() Protocol
+
 	// GetNext retrieves the next message in the chain, if one exists
 	// Returns nil, nil if there is no next message
 	GetNext(Registry) (Message, error)
@@ -86,13 +90,29 @@ type BaseMessage struct {
 	// CURRENT OTHER FIELDS...
 
 	// NEXT MESSAGE PROCESSOR
-	NextPayload  json.RawMessage `json:"next,omitempty"` // NextPayload contains the serialized next message in the chain
-	NextProtocol Protocol        `json:"next_protocol"`  // NextProtocol identifies the type of the next message. NoneProtocol indicates end of chain
+	NextPayload  Payload  `json:"next,omitempty"` // NextPayload contains the serialized next message in the chain
+	NextProtocol Protocol `json:"next_protocol"`  // NextProtocol identifies the type of the next message. NoneProtocol indicates end of chain
 }
 
 // GetProtocol returns this message's protocol identifier
 func (m *BaseMessage) GetProtocol() Protocol {
 	return m.CurrentProtocol
+}
+
+func (m *BaseMessage) GetNextPayload() (Payload, error) {
+	if m.NextProtocol == NoneProtocol {
+		return nil, nil
+	}
+
+	if m.NextPayload == nil {
+		return nil, ErrNoPayload
+	}
+
+	return m.NextPayload, nil
+}
+
+func (m *BaseMessage) GetNextProtocol() Protocol {
+	return m.NextProtocol
 }
 
 // GetNext retrieves the next message in the chain, if one exists.
@@ -107,7 +127,7 @@ func (m *BaseMessage) GetNext(registry Registry) (Message, error) {
 		return nil, ErrNoPayload
 	}
 
-	return registry.Unmarshal(m.NextProtocol, m.NextPayload)
+	return registry.Unmarshal(m.NextProtocol, json.RawMessage(m.NextPayload))
 }
 
 // Marshal serializes the message to JSON format
@@ -136,7 +156,7 @@ func NewBaseMessage(nextProtocol Protocol, nextPayload Message, msg Message) (Ba
 	return BaseMessage{
 		CurrentProtocol: msg.GetProtocol(),
 		CurrentHeader:   NewV1Header(UnknownSender, UnknownReceiver),
-		NextPayload:     inner,
+		NextPayload:     Payload(inner),
 		NextProtocol:    nextProtocol,
 	}, nil
 }

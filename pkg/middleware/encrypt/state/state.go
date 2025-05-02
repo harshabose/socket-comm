@@ -63,12 +63,22 @@ func (s *State) GenerateKeyExchangeSessionID() types.KeyExchangeSessionID {
 	return s.keyExchangeSessionID
 }
 
+func (s *State) GetConnection() interceptor.Connection {
+	return s.connection
+}
+
 func (s *State) WriteMessage(msg interceptor.Message) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
-	msg.SetReceiver(s.peerID)
+	// TODO: MANAGE CLIENT DISCOVERY
 	return s.writer.Write(s.connection, msg)
+}
+
+func (s *State) ReadMessage(msg interceptor.Message) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.reader.Read()
 }
 
 func (s *State) GetKeyExchangeSessionID() types.KeyExchangeSessionID {

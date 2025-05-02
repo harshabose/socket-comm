@@ -62,15 +62,32 @@ func (a *AES256Encryptor) Encrypt(msg message.Message) (message.Message, error) 
 		return nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
+	protocol := msg.GetProtocol()
+
 	data, err := msg.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message: %w", err)
 	}
+
+	encryptedData := a.encryptor.Seal(nil, nonce[:], data, a.sessionID[:])
+
+	return NewEncryptedMessage(encryptedData, protocol, nonce, a.sessionID)
 }
 
-func (a *AES256Encryptor) Decrypt(message message.Message) (message.Message, error) {
-	// TODO implement me
-	panic("implement me")
+func (a *AES256Encryptor) Decrypt(msg message.Message) (message.Message, error) {
+	m, ok := msg.(*EncryptedMessage)
+	if !ok {
+		return nil, encryptionerr.ErrInvalidInterceptor // JUST TO BE SURE
+	}
+
+	data, err := a.decryptor.Open(nil, m.Nonce[:], m.NextPayload, a.sessionID[:])
+	if err != nil {
+		return nil, fmt.Errorf("decryption failed: %w", err)
+	}
+
+	m.NextPayload = data
+
+	return m, nil
 }
 
 func (a *AES256Encryptor) SetSessionID(id types.EncryptionSessionID) {

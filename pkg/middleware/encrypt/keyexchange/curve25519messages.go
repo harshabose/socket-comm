@@ -263,7 +263,10 @@ func NewDoneResponse() (*DoneResponse, error) {
 	return msg, nil
 }
 
-func (m *DoneResponse) Process(protocol interfaces.Protocol, s interfaces.State) error {
+// TODO: ADD WRITE OR READ PROCESS METHODS
+// TODO: ADD PROTOCOLS
+
+func (m *DoneResponse) Process(protocol interfaces.Protocol, _ interfaces.State) error {
 	p, ok := protocol.(*Curve25519Protocol)
 	if !ok {
 		return encryptionerr.ErrInvalidMessageType

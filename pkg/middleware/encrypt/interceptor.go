@@ -65,13 +65,15 @@ func (i *Interceptor) Init(connection interceptor.Connection) error {
 
 func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) interceptor.Writer {
 	return interceptor.WriterFunc(func(conn interceptor.Connection, msg message.Message) error {
-		if i.localMessageRegistry.Check(msg.GetProtocol()) {
-			return writer.Write(conn, msg)
-		}
+		var m *encryptor.EncryptedMessage
 
-		m, err := encryptor.NewEncryptedMessage(msg)
-		if err != nil {
-			return err
+		if !i.localMessageRegistry.Check(msg.GetProtocol()) {
+			m, err := encryptor.NewEncryptedMessage(msg)
+			if err != nil {
+				return err
+			}
+
+			msg = m
 		}
 
 		if err := m.WriteProcess(i, conn); err != nil {

@@ -1,0 +1,146 @@
+package room
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/harshabose/socket-comm/pkg/message"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
+)
+
+type Room struct {
+	// NOTE: MAYBE A CONFIG FOR ROOM?
+	roomid       types.RoomID
+	allowed      []types.ClientID
+	participants map[types.ClientID]interfaces.State
+	cancel       context.CancelFunc
+	ctx          context.Context
+}
+
+func NewRoom(ctx context.Context, cancel context.CancelFunc, id types.RoomID, allowed []types.ClientID) *Room {
+	return &Room{
+		ctx:          ctx,
+		cancel:       cancel,
+		roomid:       id,
+		allowed:      allowed,
+		participants: make(map[types.ClientID]interfaces.State),
+	}
+}
+
+func (r *Room) ID() types.RoomID {
+	return r.roomid
+}
+
+func (r *Room) Add(roomid types.RoomID, s interfaces.State) error {
+	if roomid != r.roomid {
+		return errors.ErrWrongRoom
+	}
+
+	id, err := s.GetClientID()
+	if err != nil {
+		return err
+	}
+
+	if !r.isAllowed(id) {
+		return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+	}
+
+	if r.isParticipant(id) {
+		return fmt.Errorf("client with id '%s' already existing in the room with id %s; err: %s", id, r.roomid, errors.ErrClientIsAlreadyParticipant)
+	}
+
+	r.participants[id] = s
+	return nil
+}
+
+func (r *Room) isAllowed(id types.ClientID) bool {
+	if len(r.allowed) == 0 {
+		return true
+	}
+
+	for _, allowedID := range r.allowed {
+		if allowedID == id {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *Room) forEach(f func(id types.ClientID) bool, ids ...types.ClientID) bool {
+	if len(ids) == 0 {
+		return false
+	}
+
+	for _, id := range ids {
+		if !f(id) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (r *Room) Remove(roomid types.RoomID, s interfaces.State) error {
+	if roomid != r.roomid {
+		return errors.ErrWrongRoom
+	}
+
+	id, err := s.GetClientID()
+	if err != nil {
+		return err
+	}
+
+	if !r.isAllowed(id) {
+		return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+	}
+
+	if !r.isParticipant(id) {
+		return fmt.Errorf("client with id '%s' does not exist in the room with id %s; err: %s", id, r.roomid, errors.ErrClientNotAParticipant.Error())
+	}
+
+	delete(r.participants, id)
+	return nil
+}
+
+func (r *Room) isParticipant(id types.ClientID) bool {
+	_, exists := r.participants[id]
+	return exists
+}
+
+func (r *Room) WriteMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
+	if roomid != r.roomid {
+		return errors.ErrWrongRoom
+	}
+
+	if len(tos) == 0 {
+		return fmt.Errorf("atleast one receiver is need to use 'WriteMessage' message")
+	}
+
+	if !r.forEach(r.isAllowed, append(tos, from)...) {
+		return errors.ErrClientNotAllowedInRoom
+	}
+
+	if !r.forEach(r.isParticipant, append(tos, from)...) {
+		return errors.ErrClientNotAParticipant
+	}
+
+	for _, to := range tos {
+		s, ok := (r.participants[to]).(interfaces.CanWriteMessage)
+		if !ok {
+			return errors.ErrInterfaceMisMatch
+		}
+
+		if err := s.Write(msg); err != nil {
+			return fmt.Errorf("error while sending message to peer in room; err: %s", err.Error())
+		}
+	}
+
+	return nil
+}
+
+func (r *Room) Close() error {
+	return nil
+}

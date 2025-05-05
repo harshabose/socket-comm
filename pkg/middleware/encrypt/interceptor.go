@@ -31,10 +31,12 @@ func (i *Interceptor) BindSocketConnection(connection interceptor.Connection, wr
 
 	newState, err := state.NewState(ctx, cancel, i.config, connection, writer, reader)
 	if err != nil {
+		cancel()
 		return nil, nil, err
 	}
 
 	if err := i.stateManager.SetState(connection, newState); err != nil {
+		cancel()
 		return nil, nil, err
 	}
 
@@ -76,6 +78,7 @@ func (i *Interceptor) InterceptSocketWriter(writer interceptor.Writer) intercept
 			msg = m
 		}
 
+		// TODO: m might be nil
 		if err := m.WriteProcess(i, conn); err != nil {
 			return err
 		}

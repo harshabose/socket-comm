@@ -71,16 +71,16 @@ type Reader interface {
 	Read(conn Connection) (message.Message, error)
 }
 
-type ReaderFunc func(conn Connection) (message.Message, error)
+type ReaderFunc func(connection Connection) (message.Message, error)
 
-func (f ReaderFunc) Read(conn Connection) (message.Message, error) {
-	return f(conn)
+func (f ReaderFunc) Read(connection Connection) (message.Message, error) {
+	return f(connection)
 }
 
-type WriterFunc func(conn Connection, message message.Message) error
+type WriterFunc func(connection Connection, message message.Message) error
 
-func (f WriterFunc) Write(conn Connection, message message.Message) error {
-	return f(conn, message)
+func (f WriterFunc) Write(connection Connection, message message.Message) error {
+	return f(connection, message)
 }
 
 type NoOpInterceptor struct {

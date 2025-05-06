@@ -14,7 +14,7 @@ import (
 )
 
 type SendMessageRoom struct {
-	msgFactory func() message.Message
+	msgFactory func() (message.Message, error)
 	roomid     types.RoomID
 	interval   time.Duration
 	err        error
@@ -24,7 +24,7 @@ type SendMessageRoom struct {
 	cancel     context.CancelFunc
 }
 
-func NewSendMessageRoom(ctx context.Context, cancel context.CancelFunc, msgFactory func() message.Message, roomid types.RoomID, interval time.Duration) *SendMessageRoom {
+func NewSendMessageRoom(ctx context.Context, cancel context.CancelFunc, msgFactory func() (message.Message, error), roomid types.RoomID, interval time.Duration) *SendMessageRoom {
 	return &SendMessageRoom{
 		ctx:        ctx,
 		cancel:     cancel,
@@ -94,7 +94,13 @@ func (p *SendMessageRoom) process(r interfaces.CanGetRoom, _ interfaces.State) e
 	merr := util.NewMultiError()
 
 	for _, participant := range participants {
-		if err := w.WriteRoomMessage(p.roomid, p.msgFactory(), "", participant); err != nil {
+		msg, err := p.msgFactory()
+		if err != nil {
+			merr.Add(err)
+			continue
+		}
+
+		if err := w.WriteRoomMessage(p.roomid, msg, "", participant); err != nil {
 			merr.Add(err)
 		}
 	}

@@ -43,33 +43,43 @@ func (r *Room) Add(roomid types.RoomID, s interfaces.State) error {
 		return err
 	}
 
-	if !r.isAllowed(id) {
-		return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
-	}
+	select {
+	case <-r.ctx.Done():
+		return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+	default:
+		if !r.isAllowed(id) {
+			return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+		}
 
-	if r.isParticipant(id) {
-		return fmt.Errorf("client with id '%s' already existing in the room with id %s; err: %s", id, r.roomid, errors.ErrClientIsAlreadyParticipant)
-	}
+		if r.isParticipant(id) {
+			return fmt.Errorf("client with id '%s' already existing in the room with id %s; err: %s", id, r.roomid, errors.ErrClientIsAlreadyParticipant)
+		}
 
-	r.participants[id] = s
-	return nil
+		r.participants[id] = s
+		return nil
+	}
 }
 
 func (r *Room) isAllowed(id types.ClientID) bool {
-	if len(r.allowed) == 0 {
-		return true
-	}
-
-	for _, allowedID := range r.allowed {
-		if allowedID == id {
+	select {
+	case <-r.ctx.Done():
+		return false
+	default:
+		if len(r.allowed) == 0 {
 			return true
 		}
-	}
 
-	return false
+		for _, allowedID := range r.allowed {
+			if allowedID == id {
+				return true
+			}
+		}
+
+		return false
+	}
 }
 
-func (r *Room) forEach(f func(id types.ClientID) bool, ids ...types.ClientID) bool {
+func (r *Room) forEachBoolean(f func(id types.ClientID) bool, ids ...types.ClientID) bool {
 	if len(ids) == 0 {
 		return false
 	}
@@ -93,54 +103,85 @@ func (r *Room) Remove(roomid types.RoomID, s interfaces.State) error {
 		return err
 	}
 
-	if !r.isAllowed(id) {
-		return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
-	}
+	select {
+	case <-r.ctx.Done():
+		return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+	default:
+		if !r.isAllowed(id) {
+			return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+		}
 
-	if !r.isParticipant(id) {
-		return fmt.Errorf("client with id '%s' does not exist in the room with id %s; err: %s", id, r.roomid, errors.ErrClientNotAParticipant.Error())
-	}
+		if !r.isParticipant(id) {
+			return fmt.Errorf("client with id '%s' does not exist in the room with id %s; err: %s", id, r.roomid, errors.ErrClientNotAParticipant.Error())
+		}
 
-	delete(r.participants, id)
-	return nil
+		delete(r.participants, id)
+		return nil
+	}
 }
 
 func (r *Room) isParticipant(id types.ClientID) bool {
-	_, exists := r.participants[id]
-	return exists
+	select {
+	case <-r.ctx.Done():
+		return false
+	default:
+		_, exists := r.participants[id]
+		return exists
+	}
 }
 
-func (r *Room) WriteMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
-	if roomid != r.roomid {
-		return errors.ErrWrongRoom
-	}
-
-	if len(tos) == 0 {
-		return fmt.Errorf("atleast one receiver is need to use 'WriteMessage' message")
-	}
-
-	if !r.forEach(r.isAllowed, append(tos, from)...) {
-		return errors.ErrClientNotAllowedInRoom
-	}
-
-	if !r.forEach(r.isParticipant, append(tos, from)...) {
-		return errors.ErrClientNotAParticipant
-	}
-
-	for _, to := range tos {
-		s, ok := (r.participants[to]).(interfaces.CanWriteMessage)
-		if !ok {
-			return errors.ErrInterfaceMisMatch
+func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
+	select {
+	case <-r.ctx.Done():
+		return fmt.Errorf("error while sending message to peer in room; err: %s", errors.ErrContextCancelled.Error())
+	default:
+		if roomid != r.roomid {
+			return errors.ErrWrongRoom
 		}
 
-		if err := s.Write(msg); err != nil {
-			return fmt.Errorf("error while sending message to peer in room; err: %s", err.Error())
+		if len(tos) == 0 {
+			return fmt.Errorf("atleast one receiver is need to use 'WriteRoomMessage' message")
 		}
-	}
 
-	return nil
+		if !r.forEachBoolean(r.isAllowed, append(tos, from)...) {
+			return errors.ErrClientNotAllowedInRoom
+		}
+
+		if !r.forEachBoolean(r.isParticipant, append(tos, from)...) {
+			return errors.ErrClientNotAParticipant
+		}
+
+		for _, to := range tos {
+			s, ok := (r.participants[to]).(interfaces.CanWriteMessage)
+			if !ok {
+				return errors.ErrInterfaceMisMatch
+			}
+
+			if err := s.Write(msg); err != nil {
+				return fmt.Errorf("error while sending message to peer in room; err: %s", err.Error())
+			}
+		}
+
+		return nil
+	}
+}
+
+func (r *Room) GetParticipants() []types.ClientID {
+	select {
+	case <-r.ctx.Done():
+		return make([]types.ClientID, 0) // EMPTY LIST
+	default:
+		clients := make([]types.ClientID, 0)
+		for id, _ := range r.participants {
+			clients = append(clients, id)
+		}
+		return clients
+	}
 }
 
 func (r *Room) Close() error {
+	r.cancel()
+	r.participants = make(map[types.ClientID]interfaces.State)
+	r.allowed = make([]types.ClientID, 0)
 	return nil
 }

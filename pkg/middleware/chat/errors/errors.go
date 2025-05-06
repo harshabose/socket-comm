@@ -3,9 +3,11 @@ package errors
 import "errors"
 
 var (
-	ErrInterfaceMisMatch    = errors.New("unsatisfied interface triggered")
-	ErrMessageForServerOnly = errors.New("message should only be processed by server")
-	ErrMessageForClientOnly = errors.New("message should only be processed by client")
+	ErrContextCancelled      = errors.New("context cancelled")
+	ErrInterfaceMisMatch     = errors.New("unsatisfied interface triggered")
+	ErrMessageForServerOnly  = errors.New("message should only be processed by server")
+	ErrMessageForClientOnly  = errors.New("message should only be processed by client")
+	ErrClientIDNotConsistent = errors.New("client id is not consistent throughout the connection")
 
 	ErrConnectionNotFound = errors.New("connection not registered")
 	ErrConnectionExists   = errors.New("connection already exists")
@@ -19,3 +21,7 @@ var (
 	ErrClientNotAParticipant      = errors.New("client is not a participant in the room at the moment")
 	ErrWrongRoom                  = errors.New("operation not permitted as room id did not match")
 )
+
+func New(text string) error {
+	return errors.New(text)
+}

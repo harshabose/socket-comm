@@ -20,6 +20,7 @@ type Room interface {
 	CanAdd
 	CanRemove
 	ID() types.RoomID
+	GetParticipants() []types.ClientID
 	io.Closer
 }
 
@@ -28,7 +29,7 @@ type CanGetRoom interface {
 }
 
 type CanWriteRoomMessage interface {
-	WriteMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error
+	WriteRoomMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error
 }
 
 type CanCreateRoom interface {
@@ -42,12 +43,23 @@ type CanDeleteRoom interface {
 type RoomManager interface {
 	CanCreateRoom
 	CanDeleteRoom
+	CanGetRoom
 }
 
 type RoomProcessor interface {
 	Process(CanProcess, State) error
 }
 
+type RoomProcessorBackground interface {
+	ProcessBackground(CanProcessBackground, State) CanProcessBackground
+}
+
 type CanProcess interface {
 	Process(CanGetRoom, State) error
+}
+
+type CanProcessBackground interface {
+	ProcessBackground(room CanGetRoom, state State) CanProcessBackground
+	Wait() error
+	Stop()
 }

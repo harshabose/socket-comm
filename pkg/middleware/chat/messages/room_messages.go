@@ -1,4 +1,4 @@
-package room
+package messages
 
 import (
 	"fmt"
@@ -47,10 +47,6 @@ func (m *CreateRoom) ReadProcess(_i interceptor.Interceptor, connection intercep
 		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", err.Error())
 	}
 
-	if !ss.GetConfig().IsServer {
-		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", errors.ErrMessageForServerOnly)
-	}
-
 	room, err := i.CreateRoom(m.RoomID, m.Allowed, m.TTL)
 	if err != nil {
 		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", err.Error())
@@ -72,27 +68,13 @@ func (m *DeleteRoom) GetProtocol() message.Protocol {
 	return DeleteRoomProtocol
 }
 
-func (m *DeleteRoom) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+func (m *DeleteRoom) ReadProcess(i interceptor.Interceptor, _ interceptor.Connection) error {
+	d, ok := i.(interfaces.CanDeleteRoom)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	i, ok := _i.(interfaces.CanDeleteRoom)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	ss, err := s.GetState(connection)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'DeleteRoom' msg; err: %s", err.Error())
-	}
-
-	if !ss.GetConfig().IsServer {
-		return fmt.Errorf("error while read processing 'DeleteRoom' msg; err: %s", errors.ErrMessageForServerOnly)
-	}
-
-	if err := i.DeleteRoom(m.RoomID); err != nil {
+	if err := d.DeleteRoom(m.RoomID); err != nil {
 		return fmt.Errorf("error while read processing 'DeleteRoom' msg; err: %s", errors.ErrMessageForServerOnly)
 	}
 
@@ -111,23 +93,28 @@ func (m *ToForwardMessage) GetProtocol() message.Protocol {
 }
 
 func (m *ToForwardMessage) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
 	msg, err := newForwardedMessage(m)
 	if err != nil {
 		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", err.Error())
 	}
 
-	ss, err := s.GetState(connection)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'ToForwardMessage' msg; err: %s", err.Error())
+	s, ok := _i.(interfaces.CanGetState)
+	if !ok {
+		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
 	}
 
-	if !ss.GetConfig().IsServer {
-		return fmt.Errorf("error while read processing 'ToForwardMessage' msg; err: %s", errors.ErrMessageForServerOnly)
+	ss, err := s.GetState(connection)
+	if err != nil {
+		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
+	}
+
+	clientID, err := ss.GetClientID()
+	if err != nil {
+		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
+	}
+
+	if m.From != clientID {
+		return fmt.Errorf("error while read processing 'ToForwardMessage'; From and ClientID did not match")
 	}
 
 	w, ok := _i.(interfaces.CanWriteRoomMessage)
@@ -135,7 +122,7 @@ func (m *ToForwardMessage) ReadProcess(_i interceptor.Interceptor, connection in
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := w.WriteMessage(m.RoomID, msg, m.From, m.To); err != nil {
+	if err := w.WriteRoomMessage(m.RoomID, msg, m.From, m.To); err != nil {
 		return fmt.Errorf("error while read processing 'ToForwardMessage' msg; err: %s", err.Error())
 	}
 
@@ -164,7 +151,8 @@ func newForwardedMessage(forward *ToForwardMessage) (*ForwardedMessage, error) {
 
 type JoinRoom struct {
 	interceptor.BaseMessage
-	RoomID types.RoomID
+	RoomID       types.RoomID  `json:"room_id"`
+	WaitDuration time.Duration `json:"wait_duration"`
 }
 
 func (m *JoinRoom) GetProtocol() message.Protocol {
@@ -187,11 +175,21 @@ func (m *JoinRoom) ReadProcess(_i interceptor.Interceptor, connection intercepto
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := a.Add(m.RoomID, ss); err != nil {
-		return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", err.Error())
-	}
+	timer := time.NewTimer(m.WaitDuration)
+	defer timer.Stop()
 
-	return nil
+	for {
+		select {
+		case <-timer.C:
+			return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", errors.ErrMessageForServerOnly)
+		default:
+			err := a.Add(m.RoomID, ss)
+			if err == nil {
+				return nil
+			}
+			fmt.Println(fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s. retrying", err.Error()))
+		}
+	}
 }
 
 type LeaveRoom struct {

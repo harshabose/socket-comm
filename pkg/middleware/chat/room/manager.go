@@ -8,6 +8,8 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/messages"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -44,12 +46,11 @@ func (m *Manager) CreateRoom(id types.RoomID, allowed []types.ClientID, ttl time
 
 	m.rooms[id] = room
 
-	go func() {
-		if err := m.Process(NewDeleteRoomWaiter(ctx, m, id, ttl), nil); err != nil {
-			fmt.Println(err.Error())
-		}
-	}() // TODO: DO I NEED THIS?
+	// NOTE: THE FOLLOWING STARTS A BACKGROUND PROCESS WHICH WAITS UNTIL TTL AND KILLS THE ROOM. THIS DOES NOT KILL CONNECTION
+	_ = m.ProcessBackground(process.NewDeleteRoomWaiter(ctx, cancel, m, id, ttl), nil)
 
+	// NOTE: THE FOLLOWING STARTS A BACKGROUND PROCESS WHICH CONSTANTLY SENDS THE GIVEN MESSAGE TO EVERY PARTICIPANT IN THE ROOM
+	_ = m.ProcessBackground(process.NewSendMessageRoom(ctx, cancel, messages.NewRequestHealthFactory(id), id, 5*time.Second), nil)
 	return room, nil
 }
 
@@ -77,10 +78,11 @@ func (m *Manager) DeleteRoom(id types.RoomID) error {
 		return fmt.Errorf("error while deleting room with id: %s; err: %s", id, err.Error())
 	}
 
+	delete(m.rooms, id)
 	return nil
 }
 
-func (m *Manager) WriteMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
+func (m *Manager) WriteRoomMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
 	room, err := m.GetRoom(roomid)
 	if err != nil {
 		return err
@@ -91,9 +93,13 @@ func (m *Manager) WriteMessage(roomid types.RoomID, msg message.Message, from ty
 		return errors.ErrInterfaceMisMatch
 	}
 
-	return w.WriteMessage(roomid, msg, from, tos...)
+	return w.WriteRoomMessage(roomid, msg, from, tos...)
 }
 
 func (m *Manager) Process(process interfaces.CanProcess, state interfaces.State) error {
 	return process.Process(m, state)
+}
+
+func (m *Manager) ProcessBackground(process interfaces.CanProcessBackground, state interfaces.State) interfaces.CanProcessBackground {
+	return process.ProcessBackground(m, state)
 }

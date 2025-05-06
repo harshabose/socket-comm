@@ -1,15 +1,20 @@
 package interfaces
 
 import (
+	"context"
+
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/config"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
+type CanSetClientID interface {
+	SetClientID(id types.ClientID) error
+}
+
 type State interface {
 	GetClientID() (types.ClientID, error)
-	GetConfig() config.Config
+	Ctx() context.Context
 }
 
 type CanGetState interface {

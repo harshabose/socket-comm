@@ -66,6 +66,8 @@ type Message interface {
 
 	GetNextProtocol() Protocol
 
+	GetCurrentHeader() Header
+
 	// GetNext retrieves the next message in the chain, if one exists
 	// Returns nil, nil if there is no next message
 	GetNext(Registry) (Message, error)
@@ -125,6 +127,10 @@ func (m *BaseMessage) GetNextPayload() (Payload, error) {
 
 func (m *BaseMessage) GetNextProtocol() Protocol {
 	return m.NextProtocol
+}
+
+func (m *BaseMessage) GetCurrentHeader() Header {
+	return m.CurrentHeader
 }
 
 // GetNext retrieves the next message in the chain, if one exists.

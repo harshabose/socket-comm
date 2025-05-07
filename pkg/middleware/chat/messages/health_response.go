@@ -10,112 +10,32 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/health"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var (
-	RequestHealthProtocol  message.Protocol = "room:request_health"
-	HealthResponseProtocol message.Protocol = "room:health_response"
-)
-
-type RequestHealth struct {
-	interceptor.BaseMessage
-	RoomID              types.RoomID `json:"room_id"`
-	Timestamp           int64        `json:"timestamp"` // in nanoseconds
-	ConnectionStartTime int64        `json:"connection_start_time"`
-}
-
-func NewRequestHealth(id types.RoomID) (*RequestHealth, error) {
-	msg := &RequestHealth{
-		RoomID:    id,
-		Timestamp: time.Now().UnixNano(),
-	}
-
-	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
-	if err != nil {
-		panic(err)
-	}
-	msg.BaseMessage = bmsg
-
-	return msg, nil
-}
-
-func NewRequestHealthFactory(id types.RoomID) func() (message.Message, error) {
-	return func() (message.Message, error) {
-		return NewRequestHealth(id)
-	}
-}
-
-func (m *RequestHealth) GetProtocol() message.Protocol {
-	return RequestHealthProtocol
-}
-
-func (m *RequestHealth) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	ss, err := s.GetState(connection)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
-	}
-
-	msg, err := NewHealthResponse(m)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
-	}
-
-	if err := ss.Write(msg); err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
-	}
-
-	return nil
-}
-
-func (m *RequestHealth) WriteProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	ss, err := s.GetState(connection)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
-	}
-
-	id, err := ss.GetClientID()
-	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
-	}
-
-	m.SetSender(message.Sender(_i.ID()))
-	m.SetReceiver(message.Receiver(id))
-
-	return nil
-}
+var HealthResponseProtocol message.Protocol = "room:health_response"
 
 // NOTE: BASIC HEALTH RESPONSE FOR ROOM MANAGEMENT, OTHER METRICS WILL BE DEALT WITH LATER
 
 type HealthResponse struct {
 	interceptor.BaseMessage
-	RequestTimeStamp int64                  `json:"-"` // in nanoseconds
-	RoomID           types.RoomID           `json:"room_id"`
-	ConnectionStatus types.ConnectionState  `json:"connection_status"`
-	ConnectionUptime types.ConnectionUptime `json:"connection_uptime"`
-	CPUUsage         types.CPUUsage         `json:"cpu_usage"`
-	MemoryUsage      types.MemoryUsage      `json:"memory_usage"`
-	NetworkUsage     types.NetworkUsage     `json:"network_usage"`
-	Latency          types.LatencyMs        `json:"latency"`
+	health.Stat
+	RequestTimeStamp int64         `json:"-"` // in nanoseconds
+	RoomID           types.RoomID  `json:"room_id"`
+	Validity         time.Duration `json:"validity"`
 }
 
-func NewHealthResponse(request *RequestHealth) (*HealthResponse, error) {
+func NewHealthResponse(request *RequestHealth, validity time.Duration) (*HealthResponse, error) {
 	response := &HealthResponse{}
 
 	response.RequestTimeStamp = request.Timestamp
 	response.RoomID = request.RoomID
+	response.Validity = validity
 
 	response.setConnectionStatus(request.ConnectionStartTime)
 
@@ -145,9 +65,52 @@ func (m *HealthResponse) GetProtocol() message.Protocol {
 }
 
 func (m *HealthResponse) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	// TODO: IMPLEMENT HEALTH MANAGEMENT
+	i, ok := _i.(*chat.ServerInterceptor)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
 
-	return nil
+	s, err := i.GetState(connection)
+	if err != nil {
+		return err
+	}
+
+	return i.Health.Process(m, s)
+}
+
+func (m *HealthResponse) Process(p interfaces.Processor, s *state.State) error {
+	id, err := s.GetClientID()
+	if err != nil {
+		return err
+	}
+
+	if id != types.ClientID(m.CurrentHeader.Sender) {
+		return fmt.Errorf("error while processing 'HealthResponse' message; err: 'sender id does not match'")
+	}
+
+	u, ok := p.(interfaces.CanUpdate)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
+
+	// NOTE: BE VERY CAREFUL WITH THIS. STAT IS PASSED AS POINTER. ANY CHANGES LATER TO HealthResponse WILL BE REFLECTED IN CanUpdate
+	timer := time.NewTimer(m.Validity)
+	defer timer.Stop()
+
+	for {
+		// NOTE: THIS IS A BLOCKING CALL. WE NEED TO WAIT FOR THE VALIDITY TO EXPIRE
+		// NOTE: THIS ALSO MAKES SURE THAT THE ROOM ACTUALLY EXISTS BEFORE UPDATING THE HEALTH STATS
+		select {
+		case <-timer.C:
+			return fmt.Errorf("error while processing 'HealthResponse' message; err: 'validity expired'")
+		default:
+			err := u.Update(m.RoomID, id, &m.Stat)
+			if err == nil {
+				return nil
+			}
+			fmt.Println("error while reading CPU usage; err: ", err.Error())
+		}
+	}
 }
 
 func (m *HealthResponse) WriteProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
@@ -222,6 +185,11 @@ func (m *HealthResponse) setMemoryUsage() error {
 		AvailableRatio: available / total,
 	}
 
+	return nil
+}
+
+func (m *HealthResponse) setNetworkUsage() error {
+	// TODO: IMPLEMENT THIS LATER
 	return nil
 }
 

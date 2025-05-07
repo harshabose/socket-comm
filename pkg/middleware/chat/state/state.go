@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-type state struct {
+type State struct {
 	id         types.ClientID
 	connection interceptor.Connection
 	writer     interceptor.Writer
@@ -19,8 +18,8 @@ type state struct {
 	ctx        context.Context
 }
 
-func NewState(ctx context.Context, cancel context.CancelFunc, connection interceptor.Connection, writer interceptor.Writer, reader interceptor.Reader) interfaces.State {
-	return &state{
+func NewState(ctx context.Context, cancel context.CancelFunc, connection interceptor.Connection, writer interceptor.Writer, reader interceptor.Reader) *State {
+	return &State{
 		id:         types.UnKnownClient,
 		connection: connection,
 		writer:     writer,
@@ -30,11 +29,11 @@ func NewState(ctx context.Context, cancel context.CancelFunc, connection interce
 	}
 }
 
-func (s *state) Ctx() context.Context {
+func (s *State) Ctx() context.Context {
 	return s.ctx
 }
 
-func (s *state) GetClientID() (types.ClientID, error) {
+func (s *State) GetClientID() (types.ClientID, error) {
 	if s.id == types.UnKnownClient {
 		return s.id, errors.ErrUnknownClientIDState
 	}
@@ -42,11 +41,11 @@ func (s *state) GetClientID() (types.ClientID, error) {
 	return s.id, nil
 }
 
-func (s *state) Write(msg message.Message) error {
+func (s *State) Write(msg message.Message) error {
 	return s.writer.Write(s.connection, msg)
 }
 
-func (s *state) SetClientID(id types.ClientID) error {
+func (s *State) SetClientID(id types.ClientID) error {
 	if s.id != types.UnKnownClient {
 		return errors.ErrClientIDNotConsistent
 	}

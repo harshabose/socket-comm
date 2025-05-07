@@ -6,7 +6,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 )
 
@@ -14,7 +13,7 @@ type commonInterceptor struct {
 	interceptor.NoOpInterceptor
 	readProcessMessages  message.Registry
 	writeProcessMessages message.Registry
-	states               interfaces.StateManager
+	states               state.Manager
 }
 
 func (i *commonInterceptor) BindSocketConnection(connection interceptor.Connection, writer interceptor.Writer, reader interceptor.Reader) (interceptor.Writer, interceptor.Reader, error) {
@@ -98,6 +97,6 @@ func (i *commonInterceptor) Close() error {
 	return nil
 }
 
-func (i *commonInterceptor) GetState(connection interceptor.Connection) (interfaces.State, error) {
+func (i *commonInterceptor) GetState(connection interceptor.Connection) (*state.State, error) {
 	return i.states.GetState(connection)
 }

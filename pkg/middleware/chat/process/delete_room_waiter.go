@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -33,7 +35,7 @@ func NewDeleteRoomWaiter(ctx context.Context, cancel context.CancelFunc, deleter
 	}
 }
 
-func (p *DeleteRoomWaiter) Process(r interfaces.CanGetRoom, _ interfaces.State) error {
+func (p *DeleteRoomWaiter) Process(r interfaces.Processor, _ *state.State) error {
 	timer := time.NewTimer(p.ttl)
 	defer timer.Stop()
 
@@ -49,7 +51,7 @@ func (p *DeleteRoomWaiter) Process(r interfaces.CanGetRoom, _ interfaces.State) 
 	}
 }
 
-func (p *DeleteRoomWaiter) ProcessBackground(r interfaces.CanGetRoom, s interfaces.State) interfaces.CanProcessBackground {
+func (p *DeleteRoomWaiter) ProcessBackground(r interfaces.Processor, s *state.State) interfaces.CanBeProcessedBackground {
 	go func() {
 		if err := p.Process(r, s); err != nil {
 			p.mux.Lock()
@@ -76,7 +78,12 @@ func (p *DeleteRoomWaiter) Stop() {
 	p.cancel()
 }
 
-func (p *DeleteRoomWaiter) process(r interfaces.CanGetRoom) error {
+func (p *DeleteRoomWaiter) process(_r interfaces.Processor) error {
+	r, ok := _r.(interfaces.CanGetRoom)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
+
 	room, err := r.GetRoom(p.roomid)
 	if err != nil {
 		return fmt.Errorf("error while processing DelteRoomWaiter process; err: %s", err.Error())

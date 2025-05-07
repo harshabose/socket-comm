@@ -68,12 +68,7 @@ func (m *RequestHealth) ReadProcess(_i interceptor.Interceptor, connection inter
 		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
 	}
 
-	w, ok := ss.(interfaces.CanWriteMessage)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	if err := w.Write(msg); err != nil {
+	if err := ss.Write(msg); err != nil {
 		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
 	}
 

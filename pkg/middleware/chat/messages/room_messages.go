@@ -6,8 +6,10 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -32,31 +34,31 @@ func (m *CreateRoom) GetProtocol() message.Protocol {
 }
 
 func (m *CreateRoom) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	i, ok := _i.(interfaces.CanCreateRoom)
+	s, err := i.GetState(connection)
+	if err != nil {
+		return err
+	}
+
+	return i.Rooms.Process(m, s)
+}
+
+func (m *CreateRoom) Process(p interfaces.Processor, s *state.State) error {
+	r, ok := p.(interfaces.CanCreateRoom)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	ss, err := s.GetState(connection)
+	room, err := r.CreateRoom(m.RoomID, m.Allowed, m.TTL)
 	if err != nil {
-		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", err.Error())
+		return err
 	}
 
-	room, err := i.CreateRoom(m.RoomID, m.Allowed, m.TTL)
-	if err != nil {
-		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", err.Error())
-	}
-
-	if err := room.Add(m.RoomID, ss); err != nil {
-		return fmt.Errorf("error while read processing 'CreateRoom' msg; err: %s", err.Error())
-	}
-
-	return nil
+	return room.Add(m.RoomID, s)
 }
 
 type DeleteRoom struct {
@@ -68,24 +70,28 @@ func (m *DeleteRoom) GetProtocol() message.Protocol {
 	return DeleteRoomProtocol
 }
 
-func (m *DeleteRoom) ReadProcess(i interceptor.Interceptor, _ interceptor.Connection) error {
-	d, ok := i.(interfaces.CanDeleteRoom)
+func (m *DeleteRoom) ReadProcess(_i interceptor.Interceptor, _ interceptor.Connection) error {
+	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := d.DeleteRoom(m.RoomID); err != nil {
-		return fmt.Errorf("error while read processing 'DeleteRoom' msg; err: %s", errors.ErrMessageForServerOnly)
+	return i.Rooms.Process(m, nil)
+}
+
+func (m *DeleteRoom) Process(p interfaces.Processor, _ *state.State) error {
+	r, ok := p.(interfaces.CanDeleteRoom)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
 	}
 
-	return nil
+	return r.DeleteRoom(m.RoomID)
 }
 
 type ToForwardMessage struct {
 	interceptor.BaseMessage
-	RoomID types.RoomID   `json:"room_id"`
-	From   types.ClientID `json:"from"`
-	To     types.ClientID `json:"to"`
+	RoomID types.RoomID     `json:"room_id"`
+	To     []types.ClientID `json:"to"`
 }
 
 func (m *ToForwardMessage) GetProtocol() message.Protocol {
@@ -93,37 +99,40 @@ func (m *ToForwardMessage) GetProtocol() message.Protocol {
 }
 
 func (m *ToForwardMessage) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
+	i, ok := _i.(*chat.ServerInterceptor)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
+	s, err := i.GetState(connection)
+	if err != nil {
+		return err
+	}
+
+	return i.Rooms.Process(m, s)
+}
+
+func (m *ToForwardMessage) Process(p interfaces.Processor, s *state.State) error {
 	msg, err := newForwardedMessage(m)
 	if err != nil {
-		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", err.Error())
+		return err
 	}
 
-	s, ok := _i.(interfaces.CanGetState)
-	if !ok {
-		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
-	}
-
-	ss, err := s.GetState(connection)
+	clientID, err := s.GetClientID()
 	if err != nil {
-		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
+		return err
 	}
 
-	clientID, err := ss.GetClientID()
-	if err != nil {
-		return fmt.Errorf("error while read processing 'ToForwardMessage'; err: %s", errors.ErrInterfaceMisMatch)
-	}
-
-	if m.From != clientID {
+	if types.ClientID(m.CurrentHeader.Sender) != clientID {
 		return fmt.Errorf("error while read processing 'ToForwardMessage'; From and ClientID did not match")
 	}
 
-	w, ok := _i.(interfaces.CanWriteRoomMessage)
+	w, ok := p.(interfaces.CanWriteRoomMessage)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := w.WriteRoomMessage(m.RoomID, msg, m.From, m.To); err != nil {
-		return fmt.Errorf("error while read processing 'ToForwardMessage' msg; err: %s", err.Error())
+	if err := w.WriteRoomMessage(m.RoomID, msg, clientID, m.To...); err != nil {
+		return err
 	}
 
 	return nil
@@ -160,17 +169,21 @@ func (m *JoinRoom) GetProtocol() message.Protocol {
 }
 
 func (m *JoinRoom) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	ss, err := s.GetState(connection)
+	s, err := i.GetState(connection)
 	if err != nil {
-		return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", err.Error())
+		return err
 	}
 
-	a, ok := _i.(interfaces.CanAdd)
+	return i.Rooms.Process(m, s)
+}
+
+func (m *JoinRoom) Process(p interfaces.Processor, s *state.State) error {
+	a, ok := p.(interfaces.CanAdd)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
@@ -181,9 +194,9 @@ func (m *JoinRoom) ReadProcess(_i interceptor.Interceptor, connection intercepto
 	for {
 		select {
 		case <-timer.C:
-			return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", errors.ErrMessageForServerOnly)
+			return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", errors.ErrContextCancelled)
 		default:
-			err := a.Add(m.RoomID, ss)
+			err := a.Add(m.RoomID, s)
 			if err == nil {
 				return nil
 			}
@@ -202,24 +215,24 @@ func (m *LeaveRoom) GetProtocol() message.Protocol {
 }
 
 func (m *LeaveRoom) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	ss, err := s.GetState(connection)
+	s, err := i.GetState(connection)
 	if err != nil {
-		return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", err.Error())
+		return err
 	}
 
-	a, ok := _i.(interfaces.CanRemove)
+	return i.Rooms.Process(m, s)
+}
+
+func (m *LeaveRoom) Process(p interfaces.Processor, s *state.State) error {
+	r, ok := p.(interfaces.CanRemove)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := a.Remove(m.RoomID, ss); err != nil {
-		return fmt.Errorf("error while read processing 'JoinRoom' msg; err: %s", err.Error())
-	}
-
-	return nil
+	return r.Remove(m.RoomID, s)
 }

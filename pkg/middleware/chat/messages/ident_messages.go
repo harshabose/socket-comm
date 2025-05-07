@@ -34,21 +34,11 @@ func (m *Ident) ReadProcess(_i interceptor.Interceptor, connection interceptor.C
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	c, ok := ss.(interfaces.CanSetClientID)
-	if !ok {
-		return fmt.Errorf("error while processing 'Ident' message; err: %s", errors.ErrInterfaceMisMatch.Error())
-	}
-
-	if err := c.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
+	if err := ss.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	w, ok := ss.(interfaces.CanWriteMessage)
-	if !ok {
-		return fmt.Errorf("error while processing 'Ident' message; err: %s", errors.ErrInterfaceMisMatch.Error())
-	}
-
-	if err := w.Write(&IdentResponse{}); err != nil {
+	if err := ss.Write(&IdentResponse{}); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
@@ -76,12 +66,7 @@ func (m *IdentResponse) ReadProcess(_i interceptor.Interceptor, connection inter
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	c, ok := ss.(interfaces.CanSetClientID)
-	if !ok {
-		return fmt.Errorf("error while processing 'Ident' message; err: %s", errors.ErrInterfaceMisMatch.Error())
-	}
-
-	if err := c.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
+	if err := ss.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 

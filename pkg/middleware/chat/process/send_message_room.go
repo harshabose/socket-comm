@@ -10,6 +10,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -35,7 +36,7 @@ func NewSendMessageRoom(ctx context.Context, cancel context.CancelFunc, msgFacto
 	}
 }
 
-func (p *SendMessageRoom) Process(r interfaces.CanGetRoom, s interfaces.State) error {
+func (p *SendMessageRoom) Process(r interfaces.Processor, s *state.State) error {
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
 
@@ -51,9 +52,9 @@ func (p *SendMessageRoom) Process(r interfaces.CanGetRoom, s interfaces.State) e
 	}
 }
 
-func (p *SendMessageRoom) ProcessBackground(r interfaces.CanGetRoom, s interfaces.State) interfaces.CanProcessBackground {
+func (p *SendMessageRoom) ProcessBackground(_r interfaces.Processor, s *state.State) interfaces.CanBeProcessedBackground {
 	go func() {
-		if err := p.Process(r, s); err != nil {
+		if err := p.Process(_r, s); err != nil {
 			p.mux.Lock()
 			p.err = err
 			p.mux.Unlock()
@@ -78,18 +79,18 @@ func (p *SendMessageRoom) Stop() {
 	p.cancel()
 }
 
-func (p *SendMessageRoom) process(r interfaces.CanGetRoom, _ interfaces.State) error {
+func (p *SendMessageRoom) process(_r interfaces.Processor, _ *state.State) error {
+	r, ok := _r.(interfaces.CanGetRoom)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
+
 	room, err := r.GetRoom(p.roomid)
 	if err != nil {
 		return err
 	}
 
 	participants := room.GetParticipants()
-
-	w, ok := room.(interfaces.CanWriteRoomMessage)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
 
 	merr := util.NewMultiError()
 
@@ -100,7 +101,7 @@ func (p *SendMessageRoom) process(r interfaces.CanGetRoom, _ interfaces.State) e
 			continue
 		}
 
-		if err := w.WriteRoomMessage(p.roomid, msg, "", participant); err != nil {
+		if err := room.WriteRoomMessage(p.roomid, msg, "", participant); err != nil {
 			merr.Add(err)
 		}
 	}

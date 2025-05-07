@@ -6,7 +6,7 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -14,10 +14,12 @@ type Room struct {
 	// NOTE: MAYBE A CONFIG FOR ROOM?
 	roomid       types.RoomID
 	allowed      []types.ClientID
-	participants map[types.ClientID]interfaces.State
+	participants map[types.ClientID]*state.State
 	cancel       context.CancelFunc
 	ctx          context.Context
 }
+
+// TODO: DO I NEED MUX HERE?
 
 func NewRoom(ctx context.Context, cancel context.CancelFunc, id types.RoomID, allowed []types.ClientID) *Room {
 	return &Room{
@@ -25,7 +27,7 @@ func NewRoom(ctx context.Context, cancel context.CancelFunc, id types.RoomID, al
 		cancel:       cancel,
 		roomid:       id,
 		allowed:      allowed,
-		participants: make(map[types.ClientID]interfaces.State),
+		participants: make(map[types.ClientID]*state.State),
 	}
 }
 
@@ -33,7 +35,7 @@ func (r *Room) ID() types.RoomID {
 	return r.roomid
 }
 
-func (r *Room) Add(roomid types.RoomID, s interfaces.State) error {
+func (r *Room) Add(roomid types.RoomID, s *state.State) error {
 	if roomid != r.roomid {
 		return errors.ErrWrongRoom
 	}
@@ -93,7 +95,7 @@ func (r *Room) forEachBoolean(f func(id types.ClientID) bool, ids ...types.Clien
 	return true
 }
 
-func (r *Room) Remove(roomid types.RoomID, s interfaces.State) error {
+func (r *Room) Remove(roomid types.RoomID, s *state.State) error {
 	if roomid != r.roomid {
 		return errors.ErrWrongRoom
 	}
@@ -152,12 +154,7 @@ func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from t
 		}
 
 		for _, to := range tos {
-			s, ok := (r.participants[to]).(interfaces.CanWriteMessage)
-			if !ok {
-				return errors.ErrInterfaceMisMatch
-			}
-
-			if err := s.Write(msg); err != nil {
+			if err := r.participants[to].Write(msg); err != nil {
 				return fmt.Errorf("error while sending message to peer in room; err: %s", err.Error())
 			}
 		}
@@ -181,7 +178,7 @@ func (r *Room) GetParticipants() []types.ClientID {
 
 func (r *Room) Close() error {
 	r.cancel()
-	r.participants = make(map[types.ClientID]interfaces.State)
+	r.participants = make(map[types.ClientID]*state.State)
 	r.allowed = make([]types.ClientID, 0)
 	return nil
 }

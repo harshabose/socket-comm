@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -12,9 +13,8 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/health"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -24,10 +24,8 @@ var HealthResponseProtocol message.Protocol = "room:health_response"
 
 type HealthResponse struct {
 	interceptor.BaseMessage
-	health.Stat
-	RequestTimeStamp int64         `json:"-"` // in nanoseconds
-	RoomID           types.RoomID  `json:"room_id"`
-	Validity         time.Duration `json:"validity"`
+	RequestTimeStamp int64 `json:"-"` // in nanoseconds
+	process.UpdateHealth
 }
 
 func NewHealthResponse(request *RequestHealth, validity time.Duration) (*HealthResponse, error) {
@@ -64,7 +62,7 @@ func (m *HealthResponse) GetProtocol() message.Protocol {
 	return HealthResponseProtocol
 }
 
-func (m *HealthResponse) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *HealthResponse) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
@@ -75,45 +73,10 @@ func (m *HealthResponse) ReadProcess(_i interceptor.Interceptor, connection inte
 		return err
 	}
 
-	return i.Health.Process(m, s)
+	return i.Health.Process(ctx, m, s)
 }
 
-func (m *HealthResponse) Process(p interfaces.Processor, s *state.State) error {
-	id, err := s.GetClientID()
-	if err != nil {
-		return err
-	}
-
-	if id != types.ClientID(m.CurrentHeader.Sender) {
-		return fmt.Errorf("error while processing 'HealthResponse' message; err: 'sender id does not match'")
-	}
-
-	u, ok := p.(interfaces.CanUpdate)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	// NOTE: BE VERY CAREFUL WITH THIS. STAT IS PASSED AS POINTER. ANY CHANGES LATER TO HealthResponse WILL BE REFLECTED IN CanUpdate
-	timer := time.NewTimer(m.Validity)
-	defer timer.Stop()
-
-	for {
-		// NOTE: THIS IS A BLOCKING CALL. WE NEED TO WAIT FOR THE VALIDITY TO EXPIRE
-		// NOTE: THIS ALSO MAKES SURE THAT THE ROOM ACTUALLY EXISTS BEFORE UPDATING THE HEALTH STATS
-		select {
-		case <-timer.C:
-			return fmt.Errorf("error while processing 'HealthResponse' message; err: 'validity expired'")
-		default:
-			err := u.Update(m.RoomID, id, &m.Stat)
-			if err == nil {
-				return nil
-			}
-			fmt.Println("error while reading CPU usage; err: ", err.Error())
-		}
-	}
-}
-
-func (m *HealthResponse) WriteProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *HealthResponse) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	s, ok := _i.(interfaces.CanGetState)
 	if !ok {
 		return errors.ErrInterfaceMisMatch

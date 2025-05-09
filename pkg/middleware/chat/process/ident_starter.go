@@ -9,23 +9,21 @@ import (
 )
 
 type IdentInit struct {
-	ctx context.Context
+	AsyncProcess
 }
 
-func NewIdentInit(ctx context.Context) *IdentInit {
-	return &IdentInit{
-		ctx: ctx,
-	}
+func NewIdentInit() *IdentInit {
+	return &IdentInit{}
 }
 
-func (p *IdentInit) Process(r interfaces.Processor, s *state.State) error {
+func (p *IdentInit) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
 	// TODO: SEND IDENT MESSAGE
-	if err := s.Write(); err != nil {
+	if err := s.Write(nil); err != nil {
 		return err
 	}
 
-	waiter := NewIdentWaiter(p.ctx)
-	if err := waiter.Process(r, s); err != nil {
+	waiter := NewIdentWaiter()
+	if err := waiter.Process(ctx, nil, s); err != nil {
 		return fmt.Errorf("error while processing IdentInit process; err: %s", err.Error())
 	}
 

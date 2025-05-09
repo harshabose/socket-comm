@@ -29,8 +29,8 @@ func (i *ServerInterceptor) Init(connection interceptor.Connection) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	p := process.NewIdentInit(ctx)
-	if err := p.Process(i.Rooms, s); err != nil {
+	p := process.NewIdentInit()
+	if err := p.Process(ctx, nil, s); err != nil {
 		return fmt.Errorf("error while init; err: %s", err.Error())
 	}
 

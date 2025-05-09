@@ -2,7 +2,11 @@
 // It builds on the message package to add processing capabilities to messages.
 package interceptor
 
-import "github.com/harshabose/socket-comm/pkg/message"
+import (
+	"context"
+
+	"github.com/harshabose/socket-comm/pkg/message"
+)
 
 // Message extends the base message.Message interface with processing capabilities.
 // This interface allows messages to be processed by interceptors in the communication chain.
@@ -24,7 +28,7 @@ type Message interface {
 	//   - connection: The network connection associated with this message
 	//
 	// Returns an error if processing fails
-	WriteProcess(Interceptor, Connection) error
+	WriteProcess(context.Context, Interceptor, Connection) error
 
 	// ReadProcess handles interceptor processing for incoming messages.
 	// This method is called when a message is being read from a connection.
@@ -38,7 +42,7 @@ type Message interface {
 	//   - connection: The network connection associated with this message
 	//
 	// Returns an error if processing fails
-	ReadProcess(Interceptor, Connection) error
+	ReadProcess(context.Context, Interceptor, Connection) error
 
 	SetReceiver(message.Receiver)
 	SetSender(message.Sender)
@@ -75,7 +79,7 @@ func NewBaseMessage(nextProtocol message.Protocol, nextPayload message.Marshalla
 //   - connection: The network connection associated with this message
 //
 // Returns nil by default, indicating no processing was performed
-func (m *BaseMessage) WriteProcess(_ Interceptor, _ Connection) error {
+func (m *BaseMessage) WriteProcess(_ context.Context, _ Interceptor, _ Connection) error {
 	// Default implementation does nothing
 	// Derived-types should override this method with specific processing logic
 	return nil
@@ -91,7 +95,7 @@ func (m *BaseMessage) WriteProcess(_ Interceptor, _ Connection) error {
 //   - connection: The network connection associated with this message
 //
 // Returns nil by default, indicating no processing was performed
-func (m *BaseMessage) ReadProcess(_ Interceptor, _ Connection) error {
+func (m *BaseMessage) ReadProcess(_ context.Context, _ Interceptor, _ Connection) error {
 	// Default implementation does nothing
 	// Derived-types should override this method with specific processing logic
 	return nil

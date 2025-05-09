@@ -3,11 +3,12 @@ package errors
 import "errors"
 
 var (
-	ErrContextCancelled      = errors.New("context cancelled")
-	ErrInterfaceMisMatch     = errors.New("unsatisfied interface triggered")
-	ErrMessageForServerOnly  = errors.New("message should only be processed by server")
-	ErrMessageForClientOnly  = errors.New("message should only be processed by client")
-	ErrClientIDNotConsistent = errors.New("client id is not consistent throughout the connection")
+	ErrContextCancelled        = errors.New("context cancelled")
+	ErrInterfaceMisMatch       = errors.New("unsatisfied interface triggered")
+	ErrMessageForServerOnly    = errors.New("message should only be processed by server")
+	ErrMessageForClientOnly    = errors.New("message should only be processed by client")
+	ErrClientIDNotConsistent   = errors.New("client id is not consistent throughout the connection")
+	ErrProcessExecutionStopped = errors.New("process execution stopped manually")
 
 	ErrConnectionNotFound = errors.New("connection not registered")
 	ErrConnectionExists   = errors.New("connection already exists")

@@ -12,9 +12,8 @@ import (
 
 type IdentWaiterOptions func(*IdentWaiter)
 
-func NewIdentWaiter(ctx context.Context, options ...IdentWaiterOptions) *IdentWaiter {
+func NewIdentWaiter(options ...IdentWaiterOptions) *IdentWaiter {
 	p := &IdentWaiter{
-		ctx:      ctx,
 		duration: 500 * time.Millisecond,
 	}
 
@@ -26,20 +25,20 @@ func NewIdentWaiter(ctx context.Context, options ...IdentWaiterOptions) *IdentWa
 }
 
 type IdentWaiter struct {
-	ctx      context.Context
 	duration time.Duration
+	AsyncProcess
 }
 
-func (p *IdentWaiter) Process(_ interfaces.Processor, s *state.State) error {
+func (p *IdentWaiter) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
 	ticker := time.NewTicker(p.duration)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-p.ctx.Done():
+		case <-ctx.Done():
 			return errors.ErrContextCancelled
 		case <-ticker.C:
-			if err := p.process(nil, s); err == nil {
+			if err := p.process(s); err == nil {
 				return nil
 			}
 			fmt.Println("waiting for ident...")
@@ -47,7 +46,7 @@ func (p *IdentWaiter) Process(_ interfaces.Processor, s *state.State) error {
 	}
 }
 
-func (p *IdentWaiter) process(_ interfaces.Processor, s *state.State) error {
+func (p *IdentWaiter) process(s *state.State) error {
 	_, err := s.GetClientID()
 	return err
 }

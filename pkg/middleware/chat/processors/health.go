@@ -51,12 +51,12 @@ func (p *Health) exists(roomid types.RoomID) bool {
 // ========================== INTERFACE IMPLEMENTATIONS =========================
 // ==============================================================================
 
-func (p *Health) Process(process interfaces.CanBeProcessed, state *state.State) error {
-	return process.Process(p, state)
+func (p *Health) Process(ctx context.Context, process interfaces.CanBeProcessed, state *state.State) error {
+	return process.Process(ctx, p, state)
 }
 
-func (p *Health) ProcessBackground(process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
-	return process.ProcessBackground(p, state)
+func (p *Health) ProcessBackground(ctx context.Context, process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
+	return process.ProcessBackground(ctx, p, state)
 }
 
 func (p *Health) GetHealthSnapshot(roomid types.RoomID) (health.Snapshot, error) {

@@ -3,6 +3,7 @@ package room
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
@@ -15,16 +16,19 @@ type Room struct {
 	roomid       types.RoomID
 	allowed      []types.ClientID
 	participants map[types.ClientID]*state.State
+	ttl          time.Duration
 	cancel       context.CancelFunc
 	ctx          context.Context
 }
 
 // TODO: DO I NEED MUX HERE?
 
-func NewRoom(ctx context.Context, cancel context.CancelFunc, id types.RoomID, allowed []types.ClientID) *Room {
+func NewRoom(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl time.Duration) *Room {
+	ctx2, cancel := context.WithTimeout(ctx, ttl)
 	return &Room{
-		ctx:          ctx,
+		ctx:          ctx2,
 		cancel:       cancel,
+		ttl:          ttl,
 		roomid:       id,
 		allowed:      allowed,
 		participants: make(map[types.ClientID]*state.State),
@@ -33,6 +37,10 @@ func NewRoom(ctx context.Context, cancel context.CancelFunc, id types.RoomID, al
 
 func (r *Room) ID() types.RoomID {
 	return r.roomid
+}
+
+func (r *Room) TTL() time.Duration {
+	return r.ttl
 }
 
 func (r *Room) Add(roomid types.RoomID, s *state.State) error {

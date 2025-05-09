@@ -18,7 +18,7 @@ type CanUpdate interface {
 }
 
 type CanCreateHealth interface {
-	CreateHealth(types.RoomID) (*health.Health, error)
+	CreateHealth(types.RoomID, []types.ClientID) (*health.Health, error)
 }
 
 type CanDeleteHealth interface {

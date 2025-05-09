@@ -1,40 +1,40 @@
 package messages
 
 import (
+	"context"
+
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
 var DeleteRoomProtocol message.Protocol = "room:delete_room"
 
 type DeleteRoom struct {
 	interceptor.BaseMessage
-	RoomID types.RoomID `json:"room_id"`
+	process.DeleteRoom
 }
 
 func (m *DeleteRoom) GetProtocol() message.Protocol {
 	return DeleteRoomProtocol
 }
 
-func (m *DeleteRoom) ReadProcess(_i interceptor.Interceptor, _ interceptor.Connection) error {
+func (m *DeleteRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	return i.Rooms.Process(m, nil)
-}
-
-func (m *DeleteRoom) Process(p interfaces.Processor, _ *state.State) error {
-	r, ok := p.(interfaces.CanDeleteRoom)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
+	s, err := i.GetState(connection)
+	if err != nil {
+		return err
 	}
 
-	return r.DeleteRoom(m.RoomID)
+	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		return err
+	}
+
+	return process.NewSendMessage(NewSuccessDeleteRoomMessageFactory(m.RoomID)).Process(ctx, nil, s)
 }

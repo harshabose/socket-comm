@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -45,7 +46,7 @@ func (m *RequestHealth) GetProtocol() message.Protocol {
 	return RequestHealthProtocol
 }
 
-func (m *RequestHealth) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *RequestHealth) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	s, ok := _i.(interfaces.CanGetState)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
@@ -68,7 +69,7 @@ func (m *RequestHealth) ReadProcess(_i interceptor.Interceptor, connection inter
 	return nil
 }
 
-func (m *RequestHealth) WriteProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *RequestHealth) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	s, ok := _i.(interfaces.CanGetState)
 	if !ok {
 		return errors.ErrInterfaceMisMatch

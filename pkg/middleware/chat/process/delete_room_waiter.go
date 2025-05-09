@@ -3,7 +3,6 @@ package process
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
@@ -12,88 +11,46 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
+// DeleteRoomWaiter is a process that waits until TTL to delete a room.
+// NOTE: THIS IS A PURE PROCESS; AND IS NOT ADVISED TO BE TAGGED IN A MESSAGE
 type DeleteRoomWaiter struct {
-	deleter interfaces.CanDeleteRoom
-	ttl     time.Duration
-	roomid  types.RoomID
-	err     error
-	ctx     context.Context
-	cancel  context.CancelFunc
-	mux     sync.RWMutex
-	done    chan struct{}
+	TTL    time.Duration `json:"ttl"`
+	RoomID types.RoomID  `json:"room_id"`
+	AsyncProcess
 }
 
-func NewDeleteRoomWaiter(ctx context.Context, cancel context.CancelFunc, deleter interfaces.CanDeleteRoom, roomid types.RoomID, ttl time.Duration) *DeleteRoomWaiter {
+func NewDeleteRoomWaiter(ctx context.Context, roomid types.RoomID, ttl time.Duration) *DeleteRoomWaiter {
 	return &DeleteRoomWaiter{
-		ctx:     ctx,
-		cancel:  cancel,
-		roomid:  roomid,
-		deleter: deleter,
-		err:     nil,
-		ttl:     ttl,
-		done:    make(chan struct{}),
+		AsyncProcess: ManualAsyncProcessInitialisation(context.WithTimeout(ctx, ttl)),
+		RoomID:       roomid,
+		TTL:          ttl,
 	}
 }
 
-func (p *DeleteRoomWaiter) Process(r interfaces.Processor, _ *state.State) error {
-	timer := time.NewTimer(p.ttl)
+func (p *DeleteRoomWaiter) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+	d, ok := processor.(interfaces.CanDeleteRoom)
+	if !ok {
+		return errors.ErrInterfaceMisMatch
+	}
+
+	timer := time.NewTimer(p.TTL)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			if err := p.process(r); err != nil {
+			if err := p.process(d); err != nil {
 				return fmt.Errorf("error while processing DeleteRoomWaiter process; err: %s", err.Error())
 			}
-		case <-p.ctx.Done():
+			return nil
+		case <-ctx.Done():
 			return fmt.Errorf("context cancelled before process completion")
 		}
 	}
 }
 
-func (p *DeleteRoomWaiter) ProcessBackground(r interfaces.Processor, s *state.State) interfaces.CanBeProcessedBackground {
-	go func() {
-		if err := p.Process(r, s); err != nil {
-			p.mux.Lock()
-			p.err = err
-			p.mux.Unlock()
-			p.done <- struct{}{}
-
-			fmt.Println(p.err)
-		}
-	}()
-
-	return p
-}
-
-func (p *DeleteRoomWaiter) Wait() error {
-	<-p.done
-	p.mux.RLock()
-	defer p.mux.RUnlock()
-
-	return p.err
-}
-
-func (p *DeleteRoomWaiter) Stop() {
-	p.cancel()
-}
-
-func (p *DeleteRoomWaiter) process(_r interfaces.Processor) error {
-	r, ok := _r.(interfaces.CanGetRoom)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
-	room, err := r.GetRoom(p.roomid)
-	if err != nil {
-		return fmt.Errorf("error while processing DelteRoomWaiter process; err: %s", err.Error())
-	}
-
-	if err := room.Close(); err != nil {
-		return err
-	}
-
-	if err := p.deleter.DeleteRoom(p.roomid); err != nil {
+func (p *DeleteRoomWaiter) process(d interfaces.CanDeleteRoom) error {
+	if err := d.DeleteRoom(p.RoomID); err != nil {
 		return err
 	}
 

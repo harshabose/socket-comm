@@ -1,13 +1,17 @@
 package interfaces
 
-import "github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+import (
+	"context"
+
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+)
 
 type CanProcess interface {
-	Process(CanBeProcessed, *state.State) error
+	Process(context.Context, CanBeProcessed, *state.State) error
 }
 
 type CanProcessBackground interface {
-	ProcessBackground(CanBeProcessedBackground, *state.State) CanBeProcessedBackground
+	ProcessBackground(context.Context, CanBeProcessedBackground, *state.State) CanBeProcessedBackground
 }
 
 type Processor interface {
@@ -16,11 +20,11 @@ type Processor interface {
 }
 
 type CanBeProcessed interface {
-	Process(Processor, *state.State) error
+	Process(context.Context, Processor, *state.State) error
 }
 
 type CanBeProcessedBackground interface {
-	ProcessBackground(Processor, *state.State) CanBeProcessedBackground
+	ProcessBackground(context.Context, Processor, *state.State) CanBeProcessedBackground
 	Wait() error
 	Stop()
 }

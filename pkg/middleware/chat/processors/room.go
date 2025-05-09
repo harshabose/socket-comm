@@ -9,8 +9,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/messages"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/room"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
@@ -47,16 +45,9 @@ func (m *RoomManager) CreateRoom(id types.RoomID, allowed []types.ClientID, ttl 
 		return nil, fmt.Errorf("error while creating r with id %s; err: %s", id, errors.ErrRoomAlreadyExists)
 	}
 
-	ctx, cancel := context.WithTimeout(m.ctx, ttl)
-	r := room.NewRoom(ctx, cancel, id, allowed)
-
+	r := room.NewRoom(m.ctx, id, allowed, ttl)
 	m.rooms[id] = r
 
-	// NOTE: THE FOLLOWING STARTS A BACKGROUND PROCESS WHICH WAITS UNTIL TTL AND KILLS THE ROOM. THIS DOES NOT KILL CONNECTION
-	_ = m.ProcessBackground(process.NewDeleteRoomWaiter(ctx, cancel, m, id, ttl), nil)
-
-	// NOTE: THE FOLLOWING STARTS A BACKGROUND PROCESS WHICH CONSTANTLY SENDS THE GIVEN MESSAGE TO EVERY PARTICIPANT IN THE ROOM
-	_ = m.ProcessBackground(process.NewSendMessageRoom(ctx, cancel, messages.NewRequestHealthFactory(id), id, 5*time.Second), nil)
 	return r, nil
 }
 
@@ -97,10 +88,10 @@ func (m *RoomManager) WriteRoomMessage(roomid types.RoomID, msg message.Message,
 	return r.WriteRoomMessage(roomid, msg, from, tos...)
 }
 
-func (m *RoomManager) Process(process interfaces.CanBeProcessed, state *state.State) error {
-	return process.Process(m, state)
+func (m *RoomManager) Process(ctx context.Context, process interfaces.CanBeProcessed, state *state.State) error {
+	return process.Process(ctx, m, state)
 }
 
-func (m *RoomManager) ProcessBackground(process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
-	return process.ProcessBackground(m, state)
+func (m *RoomManager) ProcessBackground(ctx context.Context, process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
+	return process.ProcessBackground(ctx, m, state)
 }

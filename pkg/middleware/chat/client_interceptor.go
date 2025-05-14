@@ -11,7 +11,7 @@ import (
 )
 
 type ClientInterceptor struct {
-	commonInterceptor
+	*commonInterceptor
 	Health interfaces.Processor
 }
 
@@ -28,8 +28,8 @@ func (i *ClientInterceptor) Init(connection interceptor.Connection) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	p := process.NewIdentWaiter(ctx)
-	if err := p.Process(nil, s); err != nil {
+	p := process.NewIdentWaiter()
+	if err := p.Process(ctx, nil, s); err != nil {
 		return fmt.Errorf("error while init; err: %s", err.Error())
 	}
 

@@ -1,8 +1,10 @@
 package types
 
+import "time"
+
 type (
 	ConnectionState  string
-	ConnectionUptime int
+	ConnectionUptime time.Duration
 	CPUUsage         struct {
 		NumCores uint8     `json:"num_cores"`
 		Percent  []float64 `json:"percent"`

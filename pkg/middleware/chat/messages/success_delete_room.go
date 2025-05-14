@@ -7,7 +7,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -15,14 +14,12 @@ var SuccessDeleteRoomProtocol message.Protocol = "room:success_delete_room"
 
 type SuccessDeleteRoom struct {
 	interceptor.BaseMessage
-	process.DeleteHealth
+	RoomID types.RoomID `json:"room_id"`
 }
 
 func NewSuccessDeleteRoomMessage(id types.RoomID) (*SuccessDeleteRoom, error) {
 	msg := &SuccessDeleteRoom{
-		DeleteHealth: process.DeleteHealth{
-			RoomID: id,
-		},
+		RoomID: id,
 	}
 
 	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
@@ -44,15 +41,13 @@ func (m *SuccessDeleteRoom) GetProtocol() message.Protocol {
 	return SuccessDeleteRoomProtocol
 }
 
-func (m *SuccessDeleteRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
-	i, ok := _i.(*chat.ClientInterceptor)
+func (m *SuccessDeleteRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
+	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
 	}
 
-	if err := i.Health.Process(ctx, m, nil); err != nil {
-		return err
-	}
+	// NOTE: INTENTIONALLY EMPTY
 
 	return nil
 }

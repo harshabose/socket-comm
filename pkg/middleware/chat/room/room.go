@@ -13,15 +13,18 @@ import (
 
 type Room struct {
 	// NOTE: MAYBE A CONFIG FOR ROOM?
-	roomid       types.RoomID
-	allowed      []types.ClientID
-	participants map[types.ClientID]*state.State
-	ttl          time.Duration
-	cancel       context.CancelFunc
-	ctx          context.Context
+	roomid          types.RoomID
+	allowed         []types.ClientID
+	participants    map[types.ClientID]*state.State
+	ttl             time.Duration
+	isHealthTracked bool
+	cancel          context.CancelFunc
+	ctx             context.Context
 }
 
 // TODO: DO I NEED MUX HERE?
+// UPDATE: YES
+// TODO: ADD SOME VALIDATION BEFORE CREATING THE ROOM
 
 func NewRoom(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl time.Duration) *Room {
 	ctx2, cancel := context.WithTimeout(ctx, ttl)
@@ -33,6 +36,10 @@ func NewRoom(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl
 		allowed:      allowed,
 		participants: make(map[types.ClientID]*state.State),
 	}
+}
+
+func (r *Room) Ctx() context.Context {
+	return r.ctx
 }
 
 func (r *Room) ID() types.RoomID {
@@ -55,10 +62,10 @@ func (r *Room) Add(roomid types.RoomID, s *state.State) error {
 
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while adding client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
 	default:
 		if !r.isAllowed(id) {
-			return fmt.Errorf("error while adding client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+			return fmt.Errorf("error while adding client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowed.Error())
 		}
 
 		if r.isParticipant(id) {
@@ -115,10 +122,10 @@ func (r *Room) Remove(roomid types.RoomID, s *state.State) error {
 
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while removing client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
 	default:
 		if !r.isAllowed(id) {
-			return fmt.Errorf("error while removing client to room. client ID: %s; room ID: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowedInRoom.Error())
+			return fmt.Errorf("error while removing client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowed.Error())
 		}
 
 		if !r.isParticipant(id) {
@@ -154,7 +161,7 @@ func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from t
 		}
 
 		if !r.forEachBoolean(r.isAllowed, append(tos, from)...) {
-			return errors.ErrClientNotAllowedInRoom
+			return errors.ErrClientNotAllowed
 		}
 
 		if !r.forEachBoolean(r.isParticipant, append(tos, from)...) {
@@ -171,6 +178,42 @@ func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from t
 	}
 }
 
+func (r *Room) StartHealthTracking(roomid types.RoomID) error {
+	select {
+	case <-r.ctx.Done():
+		return fmt.Errorf("error while marking room as health tracked. room id: %s; err: %s", roomid, errors.ErrContextCancelled.Error())
+	default:
+		if roomid != r.roomid {
+			return errors.ErrWrongRoom
+		}
+
+		if r.IsRoomMarkedForHealthTracking() {
+			return fmt.Errorf("room with id %s is already health tracked", roomid)
+		}
+
+		r.isHealthTracked = true
+		return nil
+	}
+}
+
+func (r *Room) IsRoomMarkedForHealthTracking() bool {
+	return r.isHealthTracked
+}
+
+func (r *Room) UnMarkRoomForHealthTracking() error {
+	select {
+	case <-r.ctx.Done():
+		return fmt.Errorf("error while unmarking room as health tracked. room id: %s; err: %s", r.roomid, errors.ErrContextCancelled.Error())
+	default:
+		if !r.IsRoomMarkedForHealthTracking() {
+			return fmt.Errorf("room with id %s is not health tracked", r.roomid)
+		}
+
+		r.isHealthTracked = false
+		return nil
+	}
+}
+
 func (r *Room) GetParticipants() []types.ClientID {
 	select {
 	case <-r.ctx.Done():
@@ -182,6 +225,10 @@ func (r *Room) GetParticipants() []types.ClientID {
 		}
 		return clients
 	}
+}
+
+func (r *Room) GetAllowed() []types.ClientID {
+	return r.allowed
 }
 
 func (r *Room) Close() error {

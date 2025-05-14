@@ -28,7 +28,11 @@ func ManualAsyncProcessInitialisation(ctx context.Context, cancel context.Cancel
 	}
 }
 
-func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interfaces.Processor, _ *state.State) interfaces.CanBeProcessedBackground {
+func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interfaces.Processor, s *state.State) interfaces.CanBeProcessedBackground {
+	if p.CanBeProcessed == nil {
+		fmt.Println("WARNING: AsyncProcess.CanBeProcessed is nil; this is not allowed")
+		// p.CanBeProcessed =
+	}
 	if p.done == nil { // ONLY POSSIBLE WHEN NOT ManualAsyncProcessInitialisation-ed
 		p.done = make(chan struct{})
 	}
@@ -43,7 +47,7 @@ func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interfaces.Proc
 	}
 
 	go func() {
-		err := p.Process(p.ctx, _p, nil)
+		err := p.Process(p.ctx, _p, s)
 		p.mux.Lock()
 		defer p.mux.Unlock()
 		defer p.cancel()

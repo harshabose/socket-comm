@@ -13,6 +13,12 @@ type Manager struct {
 	mux    sync.RWMutex
 }
 
+func NewManager() *Manager {
+	return &Manager{
+		states: make(map[interceptor.Connection]*State),
+	}
+}
+
 func (m *Manager) GetState(connection interceptor.Connection) (*State, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()

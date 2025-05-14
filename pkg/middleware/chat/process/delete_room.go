@@ -14,6 +14,7 @@ type DeleteRoom struct {
 	AsyncProcess
 }
 
+// Process needs room processor to be passed in.
 func (p *DeleteRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
 	select {
 	case <-ctx.Done():

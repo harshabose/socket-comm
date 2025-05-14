@@ -12,8 +12,8 @@ import (
 
 var SuccessCreateRoomProtocol message.Protocol = "room:success_create_room"
 
-// SuccessCreateRoom is the message sent by the server to the client, which requested to create the room
-// when creation of the room is successfully.
+// SuccessCreateRoom is the message sent by the server to the client after successful creation of the requested room.
+// This marks the end of the CreateRoom topic.
 type SuccessCreateRoom struct {
 	interceptor.BaseMessage
 	RoomID types.RoomID `json:"room_id"`
@@ -49,6 +49,6 @@ func (m *SuccessCreateRoom) ReadProcess(_ context.Context, _i interceptor.Interc
 		return errors.ErrInvalidInterceptor
 	}
 
-	// TODO: AS OF NOW, THIS IS A EMPTY PROCESS.
+	// NOTE: INTENTIONALLY EMPTY
 	return nil
 }

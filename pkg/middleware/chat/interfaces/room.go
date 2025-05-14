@@ -32,3 +32,12 @@ type CanCreateRoom interface {
 type CanDeleteRoom interface {
 	DeleteRoom(types.RoomID) error
 }
+
+type CanStartHealthTracking interface {
+	StartHealthTracking(types.RoomID, time.Duration) error
+	IsHealthTracked(types.RoomID) (bool, error)
+}
+
+type CanStopHealthTracking interface {
+	StopHealthTracking(types.RoomID) error
+}

@@ -2,7 +2,6 @@ package process
 
 import (
 	"context"
-	"time"
 
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/health"
@@ -11,19 +10,14 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-type UpdateHealth struct {
-	RoomID   types.RoomID  `json:"room_id"`
-	Validity time.Duration `json:"validity"`
+// UpdateHealthStat process updates the health processor with the given health.Stat
+type UpdateHealthStat struct {
+	RoomID types.RoomID `json:"room_id"`
 	health.Stat
 	AsyncProcess
 }
 
-func (p *UpdateHealth) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
-	u, ok := processor.(interfaces.CanUpdate)
-	if !ok {
-		return errors.ErrInterfaceMisMatch
-	}
-
+func (p *UpdateHealthStat) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
 	select {
 	case <-ctx.Done():
 		return errors.ErrContextCancelled
@@ -31,6 +25,11 @@ func (p *UpdateHealth) Process(ctx context.Context, processor interfaces.Process
 		id, err := s.GetClientID()
 		if err != nil {
 			return err
+		}
+
+		u, ok := processor.(interfaces.CanUpdate)
+		if !ok {
+			return errors.ErrInterfaceMisMatch
 		}
 
 		if err := u.Update(p.RoomID, id, &p.Stat); err != nil {

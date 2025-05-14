@@ -12,20 +12,23 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-type SendMessageAllRoom struct {
+// SendMessageToAllParticipantsInRoom is a process that sends a message to all participants of a room.
+// NOTE: THIS IS A PURE PROCESS; AND IS NOT ADVISED TO BE TAGGED IN A MESSAGE
+type SendMessageToAllParticipantsInRoom struct {
 	msgFactory func() (message.Message, error)
 	Roomid     types.RoomID `json:"roomid"`
 	AsyncProcess
 }
 
-func NewSendMessageAllRoom(roomid types.RoomID, msgFactory func() (message.Message, error)) *SendMessageAllRoom {
-	return &SendMessageAllRoom{
+func NewSendMessageToAllParticipantsInRoom(roomid types.RoomID, msgFactory func() (message.Message, error)) *SendMessageToAllParticipantsInRoom {
+	return &SendMessageToAllParticipantsInRoom{
 		msgFactory: msgFactory,
 		Roomid:     roomid,
 	}
 }
 
-func (p *SendMessageAllRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+// Process needs Room processor to be passed in.
+func (p *SendMessageToAllParticipantsInRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
 	select {
 	case <-ctx.Done():
 		return errors.ErrContextCancelled
@@ -44,7 +47,7 @@ func (p *SendMessageAllRoom) Process(ctx context.Context, processor interfaces.P
 		merr := util.NewMultiError()
 
 		for _, participant := range participants {
-			if err := NewSendMessageRoom(p.Roomid, participant, p.msgFactory).Process(ctx, processor, nil); err != nil {
+			if err := NewSendMessageBetweenParticipantsInRoom(p.Roomid, participant, p.msgFactory).Process(ctx, processor, nil); err != nil {
 				fmt.Println("error while sending message to room; err: ", err.Error())
 			}
 		}

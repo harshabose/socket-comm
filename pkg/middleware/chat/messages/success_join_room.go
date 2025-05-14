@@ -7,27 +7,50 @@ import (
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
 var SuccessJoinRoomProtocol message.Protocol = "room:success_join_room"
 
 // SuccessJoinRoom is the message sent by the server to the clients (including the requested client and roommates)
 // when the client joins a room successfully.
+// NOTE: THIS MESSAGE IS SENT TO ALL CLIENTS IN THE ROOM.
+// This marks the end of the JoinRoom topic.
 type SuccessJoinRoom struct {
 	interceptor.BaseMessage
-	process.CreateHealth
+	RoomID types.RoomID `json:"room_id"`
+}
+
+func NewSuccessJoinRoomMessage(id types.RoomID) (*SuccessJoinRoom, error) {
+	msg := &SuccessJoinRoom{
+		RoomID: id,
+	}
+
+	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.BaseMessage = bmsg
+	return msg, nil
+}
+
+func NewSuccessJoinRoomMessageFactory(id types.RoomID) func() (message.Message, error) {
+	return func() (message.Message, error) {
+		return NewSuccessJoinRoomMessage(id)
+	}
 }
 
 func (m *SuccessJoinRoom) GetProtocol() message.Protocol {
 	return SuccessJoinRoomProtocol
 }
 
-func (m *SuccessJoinRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
-	i, ok := _i.(*chat.ClientInterceptor)
+func (m *SuccessJoinRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
+	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
 		return errors.ErrInvalidInterceptor
 	}
 
-	return i.Health.Process(ctx, m, nil)
+	// NOTE: INTENTIONALLY EMPTY
+	return nil
 }

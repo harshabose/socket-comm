@@ -32,5 +32,13 @@ func (m *LeaveRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor,
 		return err
 	}
 
-	return i.Rooms.Process(ctx, m, s)
+	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		return err
+	}
+
+	if err := process.NewSendMessage(NewSuccessLeaveRoomMessageFactory(m.RoomID)).Process(ctx, nil, s); err != nil {
+		return err
+	}
+
+	return nil
 }

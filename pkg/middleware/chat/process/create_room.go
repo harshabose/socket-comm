@@ -18,8 +18,16 @@ type CreateRoom struct {
 	AsyncProcess
 }
 
-func (p *CreateRoom) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
-	// NOTE: CTX HERE MIGHT BE SHORT-LIVED
+func NewCreateRoom(roomID types.RoomID, allowed []types.ClientID, ttl time.Duration) *CreateRoom {
+	return &CreateRoom{
+		RoomID:  roomID,
+		Allowed: allowed,
+		TTL:     ttl,
+	}
+}
+
+// Process requires room processor to be passed in.
+func (p *CreateRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
 	select {
 	case <-ctx.Done():
 		return errors.ErrContextCancelled
@@ -33,9 +41,6 @@ func (p *CreateRoom) Process(ctx context.Context, processor interfaces.Processor
 		if err != nil {
 			return err
 		}
-
-		// TODO: USING SHORT-LIVED CTX IS NOT APPROPRIATE HERE; FOR NOW USING NIL
-		_ = NewDeleteRoomWaiter(ctx, p.RoomID, p.TTL).ProcessBackground(nil, processor, s)
 
 		return nil
 	}

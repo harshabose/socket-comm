@@ -11,7 +11,7 @@ import (
 )
 
 type ServerInterceptor struct {
-	commonInterceptor
+	*commonInterceptor
 	Rooms  interfaces.Processor
 	Health interfaces.Processor
 }

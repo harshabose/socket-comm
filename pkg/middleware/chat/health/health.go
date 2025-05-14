@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
@@ -21,13 +22,15 @@ type Stat struct {
 
 type Health struct {
 	Snapshot
-	mux sync.RWMutex
-	ctx context.Context
+	mux    sync.RWMutex
+	cancel context.CancelFunc
+	ctx    context.Context
 }
 
 type Snapshot struct {
-	Roomid       types.RoomID             `json:"roomid"`       // NOTE: ADDED WHEN HEALTH IS CREATED.
-	Allowed      []types.ClientID         `json:"allowed"`      // NOTE: ADDED WHEN HEALTH IS CREATED.
+	Roomid       types.RoomID             `json:"roomid"` // NOTE: ADDED WHEN HEALTH IS CREATED.
+	Allowed      []types.ClientID         `json:"allowed"`
+	TTL          time.Duration            `json:"ttl"`
 	Participants map[types.ClientID]*Stat `json:"participants"` // NOTE: ADDED WHEN CLIENT JOINS. UPDATED WHEN CLIENT SENDS HEALTH RESPONSE.
 }
 
@@ -37,19 +40,55 @@ func (h *Snapshot) Marshal() ([]byte, error) {
 	return json.Marshal(h)
 }
 
-func NewHealth(ctx context.Context, id types.RoomID, allowed []types.ClientID) *Health {
-	return &Health{
+func NewHealth(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl time.Duration) *Health {
+	ctx2, cancel := context.WithTimeout(ctx, ttl)
+	h := &Health{
 		Snapshot: Snapshot{
 			Roomid:       id,
 			Allowed:      allowed,
+			TTL:          ttl,
 			Participants: make(map[types.ClientID]*Stat),
 		},
-		ctx: ctx,
+		cancel: cancel,
+		ctx:    ctx2,
 	}
+
+	for _, allowed := range h.Allowed {
+		if err := h.Add(id, allowed); err != nil {
+			fmt.Printf("error while adding allowed client: %s; but not returning an error", err)
+			continue
+		}
+	}
+
+	return h
+}
+
+func (h *Health) Ctx() context.Context {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+
+	return h.ctx
 }
 
 func (h *Health) ID() types.RoomID {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+
 	return h.Roomid
+}
+
+func (h *Health) GetTTL() time.Duration {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+
+	return h.TTL
+}
+
+func (h *Health) GetAllowed() []types.ClientID {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+
+	return h.Allowed
 }
 
 func (h *Health) Add(roomid types.RoomID, id types.ClientID) error {
@@ -62,13 +101,13 @@ func (h *Health) Add(roomid types.RoomID, id types.ClientID) error {
 
 	select {
 	case <-h.ctx.Done():
-		return fmt.Errorf("error while adding client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while adding client to health stats. client id: %s; room id: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
 	default:
-		if !h.isAllowed(id) {
-			return fmt.Errorf("error while adding client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrClientNotAllowedInRoom.Error())
+		if !h.IsAllowed(id) {
+			return fmt.Errorf("client with id '%s' is not allowed in the health room with id '%s'; err: %s", id, h.Roomid, errors.ErrClientNotAllowed.Error())
 		}
 
-		if h.isParticipant(id) {
+		if h.IsParticipant(id) {
 			return fmt.Errorf("client with id '%s' already existing in the health stats with id %s; err: %s", id, h.Roomid, errors.ErrClientIsAlreadyParticipant)
 		}
 
@@ -87,13 +126,13 @@ func (h *Health) Remove(roomid types.RoomID, id types.ClientID) error {
 
 	select {
 	case <-h.ctx.Done():
-		return fmt.Errorf("error while removing client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while removing client to health stats. client id: %s; room id: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
 	default:
-		if !h.isAllowed(id) {
-			return fmt.Errorf("error while removing client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrClientNotAllowedInRoom.Error())
+		if !h.IsAllowed(id) {
+			return fmt.Errorf("client with id '%s' is not allowed in the health room with id '%s'; err: %s", id, h.Roomid, errors.ErrClientNotAllowed.Error())
 		}
 
-		if !h.isParticipant(id) {
+		if !h.IsParticipant(id) {
 			return fmt.Errorf("client with id '%s' does not exist in the health stats with id %s; err: %s", id, h.Roomid, errors.ErrClientNotAParticipant.Error())
 		}
 
@@ -112,13 +151,13 @@ func (h *Health) Update(roomid types.RoomID, id types.ClientID, s *Stat) error {
 
 	select {
 	case <-h.ctx.Done():
-		return fmt.Errorf("error while adding client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while adding client to health stats. client id: %s; room id: %s; err: %s", id, h.Roomid, errors.ErrContextCancelled.Error())
 	default:
-		if !h.isAllowed(id) {
-			return fmt.Errorf("error while adding client to health stats. client ID: %s; room ID: %s; err: %s", id, h.Roomid, errors.ErrClientNotAllowedInRoom.Error())
+		if !h.IsAllowed(id) {
+			return fmt.Errorf("client with id '%s' is not allowed in the health room with id '%s'; err: %s", id, h.Roomid, errors.ErrClientNotAllowed.Error())
 		}
 
-		if !h.isParticipant(id) {
+		if !h.IsParticipant(id) {
 			return fmt.Errorf("client with id '%s' does not exist in the health stats with id %s; err: %s", id, h.Roomid, errors.ErrClientNotAParticipant.Error())
 		}
 
@@ -127,7 +166,33 @@ func (h *Health) Update(roomid types.RoomID, id types.ClientID, s *Stat) error {
 	}
 }
 
-func (h *Health) isAllowed(id types.ClientID) bool {
+// Close will close this health room and does not allow any further updates to the participant stats.
+// This will also delete all the health stats data.
+func (h *Health) Close() error {
+	h.mux.Lock()
+	defer h.mux.Unlock()
+
+	select {
+	case <-h.ctx.Done():
+		return fmt.Errorf("error while closing the health room with id %s; err: %s", h.Roomid, errors.ErrContextCancelled.Error())
+	default:
+		h.Allowed = make([]types.ClientID, 0)
+		h.Participants = make(map[types.ClientID]*Stat)
+		return nil
+	}
+}
+
+func (h *Health) IsParticipant(id types.ClientID) bool {
+	select {
+	case <-h.ctx.Done():
+		return false
+	default:
+		_, exists := h.Participants[id]
+		return exists
+	}
+}
+
+func (h *Health) IsAllowed(id types.ClientID) bool {
 	select {
 	case <-h.ctx.Done():
 		return false
@@ -143,15 +208,5 @@ func (h *Health) isAllowed(id types.ClientID) bool {
 		}
 
 		return false
-	}
-}
-
-func (h *Health) isParticipant(id types.ClientID) bool {
-	select {
-	case <-h.ctx.Done():
-		return false
-	default:
-		_, exists := h.Participants[id]
-		return exists
 	}
 }

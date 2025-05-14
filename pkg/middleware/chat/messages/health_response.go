@@ -18,24 +18,26 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var HealthResponseProtocol message.Protocol = "room:health_response"
+const HealthResponseProtocol message.Protocol = "room:health_response"
 
-// NOTE: BASIC HEALTH RESPONSE FOR ROOM MANAGEMENT, OTHER METRICS WILL BE DEALT WITH LATER
-
-type HealthResponse struct {
+// UpdateHealthStat is sent by a client to the server in response to SendHealthStats.
+type UpdateHealthStat struct {
 	interceptor.BaseMessage
-	RequestTimeStamp int64 `json:"-"` // in nanoseconds
-	process.UpdateHealth
+	process.UpdateHealthStat
 }
 
-func NewHealthResponse(request *RequestHealth, validity time.Duration) (*HealthResponse, error) {
-	response := &HealthResponse{}
+func NewUpdateHealthStatFactory(request *SendHealthStats) func() (message.Message, error) {
+	return func() (message.Message, error) {
+		return NewUpdateHealthStat(request)
+	}
+}
 
-	response.RequestTimeStamp = request.Timestamp
+func NewUpdateHealthStat(request *SendHealthStats) (*UpdateHealthStat, error) {
+	response := &UpdateHealthStat{}
+
 	response.RoomID = request.RoomID
-	response.Validity = validity
 
-	response.setConnectionStatus(request.ConnectionStartTime)
+	response.setConnectionStatus(request.ConnectionStartTimestamp)
 
 	if err := response.setCPUUsage(); err != nil {
 		return nil, err
@@ -45,7 +47,7 @@ func NewHealthResponse(request *RequestHealth, validity time.Duration) (*HealthR
 		return nil, err
 	}
 
-	if err := response.setLatency(); err != nil {
+	if err := response.setLatency(request.Timestamp); err != nil {
 		return nil, err
 	}
 
@@ -58,11 +60,11 @@ func NewHealthResponse(request *RequestHealth, validity time.Duration) (*HealthR
 	return response, nil
 }
 
-func (m *HealthResponse) GetProtocol() message.Protocol {
+func (m *UpdateHealthStat) GetProtocol() message.Protocol {
 	return HealthResponseProtocol
 }
 
-func (m *HealthResponse) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *UpdateHealthStat) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
@@ -76,7 +78,7 @@ func (m *HealthResponse) ReadProcess(ctx context.Context, _i interceptor.Interce
 	return i.Health.Process(ctx, m, s)
 }
 
-func (m *HealthResponse) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
+func (m *UpdateHealthStat) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	s, ok := _i.(interfaces.CanGetState)
 	if !ok {
 		return errors.ErrInterfaceMisMatch
@@ -84,12 +86,12 @@ func (m *HealthResponse) WriteProcess(ctx context.Context, _i interceptor.Interc
 
 	ss, err := s.GetState(connection)
 	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
+		return fmt.Errorf("error while read processing 'SendHealthStats' msg; err: %s", err.Error())
 	}
 
 	id, err := ss.GetClientID()
 	if err != nil {
-		return fmt.Errorf("error while read processing 'RequestHealth' msg; err: %s", err.Error())
+		return fmt.Errorf("error while read processing 'SendHealthStats' msg; err: %s", err.Error())
 	}
 
 	m.SetSender(message.Sender(_i.ID()))
@@ -98,16 +100,16 @@ func (m *HealthResponse) WriteProcess(ctx context.Context, _i interceptor.Interc
 	return nil
 }
 
-func (m *HealthResponse) setConnectionStatus(startTime int64) {
+func (m *UpdateHealthStat) setConnectionStatus(startTime time.Time) {
 	m.ConnectionStatus = types.ConnectionStateUp
 	m.ConnectionUptime = m.getConnectionUptime(startTime)
 }
 
-func (m *HealthResponse) getConnectionUptime(startTime int64) types.ConnectionUptime {
-	return types.ConnectionUptime(time.Now().Unix() - startTime)
+func (m *UpdateHealthStat) getConnectionUptime(startTime time.Time) types.ConnectionUptime {
+	return types.ConnectionUptime(time.Since(startTime))
 }
 
-func (m *HealthResponse) setCPUUsage() error {
+func (m *UpdateHealthStat) setCPUUsage() error {
 	perCorePercentages, err := cpu.Percent(100*time.Millisecond, false)
 	if err != nil {
 		return fmt.Errorf("error while reading CPU usage; err: %s", err.Error())
@@ -130,7 +132,7 @@ func (m *HealthResponse) setCPUUsage() error {
 	return nil
 }
 
-func (m *HealthResponse) setMemoryUsage() error {
+func (m *UpdateHealthStat) setMemoryUsage() error {
 	vmStats, err := mem.VirtualMemory()
 	if err != nil {
 		return fmt.Errorf("error while reading memory usage; err: %s", err.Error())
@@ -151,13 +153,13 @@ func (m *HealthResponse) setMemoryUsage() error {
 	return nil
 }
 
-func (m *HealthResponse) setNetworkUsage() error {
+func (m *UpdateHealthStat) setNetworkUsage() error {
 	// TODO: IMPLEMENT THIS LATER
 	return nil
 }
 
-func (m *HealthResponse) setLatency() error {
-	latencyNano := time.Now().UnixNano() - m.RequestTimeStamp
+func (m *UpdateHealthStat) setLatency(requestTimestamp time.Time) error {
+	latencyNano := time.Since(requestTimestamp).Nanoseconds()
 
 	latencyMs := latencyNano / int64(time.Millisecond)
 

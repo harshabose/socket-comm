@@ -32,7 +32,9 @@ func (m *JoinRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, 
 		return err
 	}
 
-	return i.Rooms.Process(ctx, m, s)
-	// TODO: AFTER SUCCESS, SEND ROOM CURRENT STATE TO THE CLIENT
-	// TODO: THEN SEND SuccessJoinRoom MESSAGE TO THE CLIENT
+	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		return err
+	}
+
+	return process.NewSendMessageToAllParticipantsInRoom(m.RoomID, NewSuccessJoinRoomMessageFactory(m.RoomID)).Process(ctx, nil, s)
 }

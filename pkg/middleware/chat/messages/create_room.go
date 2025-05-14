@@ -14,10 +14,9 @@ var CreateRoomProtocol message.Protocol = "room:create_room"
 
 // CreateRoom is the message sent by the client to the server when the client wants to create a room.
 // When received by the server, the server will create a room with the given room id and allowed clients.
-// The room is created with the given TTL.
-// A process to KILL the room after TTL is created in the background.
+// A process to KILL the room after TTL is spawned in the background.
 // The server will then send a SuccessCreateRoom message to the client.
-// NOTE: THIS DOES NOT ADD THE REQUESTING CLIENT TO THE ROOM; THIS IS MANAGED BY ANOTHER MESSAGE
+// NOTE: THIS DOES NOT ADD THE REQUESTING CLIENT TO THE ROOM; THIS IS MANAGED BY JoinRoom MESSAGE
 type CreateRoom struct {
 	interceptor.BaseMessage
 	process.CreateRoom

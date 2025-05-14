@@ -15,7 +15,7 @@ import (
 )
 
 type Init struct {
-	// TODO: MANAGE STATE USING KEY EXCHANGE SESSION ID
+	// TODO: MANAGE STATE USING KEY EXCHANGE SESSION id
 	interceptor.BaseMessage
 	PublicKey types.PublicKey           `json:"public_key"`
 	Signature []byte                    `json:"signature"`

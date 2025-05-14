@@ -7,6 +7,8 @@ require (
 	golang.org/x/crypto v0.37.0
 )
 
+require github.com/coder/websocket v1.8.13 // indirect
+
 require (
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

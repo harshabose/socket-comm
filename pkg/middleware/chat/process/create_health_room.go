@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"time"
 
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
@@ -9,31 +10,32 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-// CreateHealth is a process that creates health for a room
-type CreateHealth struct {
+type CreateHealthRoom struct {
 	RoomID  types.RoomID     `json:"room_id"`
 	Allowed []types.ClientID `json:"allowed"`
+	TTL     time.Duration    `json:"ttl"`
 	AsyncProcess
 }
 
-func NewCreateHealth(roomID types.RoomID, allowed []types.ClientID) interfaces.CanBeProcessed {
-	return &CreateHealth{
-		RoomID:  roomID,
+func NewCreateHealthRoom(id types.RoomID, allowed []types.ClientID, ttl time.Duration) CreateHealthRoom {
+	return CreateHealthRoom{
+		RoomID:  id,
 		Allowed: allowed,
+		TTL:     ttl,
 	}
 }
 
-func (p *CreateHealth) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func (p *CreateHealthRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
 	select {
 	case <-ctx.Done():
 		return errors.ErrContextCancelled
 	default:
-		c, ok := processor.(interfaces.CanCreateHealth)
+		r, ok := processor.(interfaces.CanCreateHealth)
 		if !ok {
 			return errors.ErrInterfaceMisMatch
 		}
 
-		_, err := c.CreateHealth(p.RoomID, p.Allowed)
+		_, err := r.CreateHealth(p.RoomID, p.Allowed, p.TTL)
 		if err != nil {
 			return err
 		}

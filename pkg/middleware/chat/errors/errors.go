@@ -16,8 +16,8 @@ var (
 	ErrRoomNotFound       = errors.New("room does not exists")
 	ErrRoomAlreadyExists  = errors.New("room already exists")
 
-	ErrUnknownClientIDState       = errors.New("client ID not known at the moment")
-	ErrClientNotAllowedInRoom     = errors.New("client is not allowed in the room")
+	ErrUnknownClientIDState       = errors.New("client id not known at the moment")
+	ErrClientNotAllowed           = errors.New("client is not allowed in the room")
 	ErrClientIsAlreadyParticipant = errors.New("client is already a participant in the room")
 	ErrClientNotAParticipant      = errors.New("client is not a participant in the room at the moment")
 	ErrWrongRoom                  = errors.New("operation not permitted as room id did not match")

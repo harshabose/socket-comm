@@ -21,6 +21,7 @@ func NewAddToRoom(roomID types.RoomID) interfaces.CanBeProcessed {
 	}
 }
 
+// Process needs room processor
 func (p *AddToRoom) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
 	select {
 	case <-ctx.Done():

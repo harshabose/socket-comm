@@ -14,7 +14,7 @@ type SendMessage struct {
 	AsyncProcess
 }
 
-func NewSendMessage(factory func() (message.Message, error)) interfaces.CanBeProcessed {
+func NewSendMessage(factory func() (message.Message, error)) *SendMessage {
 	return &SendMessage{
 		factory: factory,
 	}

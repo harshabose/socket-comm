@@ -3,13 +3,18 @@ package interceptor
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/harshabose/socket-comm/pkg/message"
 )
 
 type Registry struct {
 	factories []Factory
+}
+
+func NewRegistry() *Registry {
+	return &Registry{
+		factories: make([]Factory, 0),
+	}
 }
 
 func (registry *Registry) Register(factory Factory) {
@@ -64,30 +69,37 @@ type Interceptor interface {
 }
 
 type Writer interface {
-	Write(conn Connection, message message.Message) error
+	Write(ctx context.Context, conn Connection, message message.Message) error
 }
 
 type Reader interface {
-	Read(conn Connection) (message.Message, error)
+	Read(ctx context.Context, conn Connection) (message.Message, error)
 }
 
-type ReaderFunc func(connection Connection) (message.Message, error)
+type ReaderFunc func(ctx context.Context, connection Connection) (message.Message, error)
 
-func (f ReaderFunc) Read(connection Connection) (message.Message, error) {
-	return f(connection)
+func (f ReaderFunc) Read(ctx context.Context, connection Connection) (message.Message, error) {
+	return f(ctx, connection)
 }
 
-type WriterFunc func(connection Connection, message message.Message) error
+type WriterFunc func(ctx context.Context, connection Connection, message message.Message) error
 
-func (f WriterFunc) Write(connection Connection, message message.Message) error {
-	return f(connection, message)
+func (f WriterFunc) Write(ctx context.Context, connection Connection, message message.Message) error {
+	return f(ctx, connection, message)
 }
 
 type NoOpInterceptor struct {
 	iD              string
 	messageRegistry message.Registry
-	Mutex           sync.RWMutex
 	ctx             context.Context
+}
+
+func NewNoOpInterceptor(ctx context.Context, id string, registry message.Registry) NoOpInterceptor {
+	return NoOpInterceptor{
+		ctx:             ctx,
+		iD:              id,
+		messageRegistry: registry,
+	}
 }
 
 func (interceptor *NoOpInterceptor) Ctx() context.Context {

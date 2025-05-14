@@ -17,7 +17,7 @@ type SendMessageRoom struct {
 	AsyncProcess
 }
 
-func NewSendMessageRoom(roomID types.RoomID, clientID types.ClientID, messageFactory func() (message.Message, error)) *SendMessageRoom {
+func NewSendMessageBetweenParticipantsInRoom(roomID types.RoomID, clientID types.ClientID, messageFactory func() (message.Message, error)) *SendMessageRoom {
 	return &SendMessageRoom{
 		RoomID:         roomID,
 		ClientID:       clientID,

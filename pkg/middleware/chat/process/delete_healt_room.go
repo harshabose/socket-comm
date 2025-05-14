@@ -9,11 +9,18 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-type DeleteHealth struct {
+type DeleteHealthRoom struct {
 	RoomID types.RoomID `json:"room_id"`
+	AsyncProcess
 }
 
-func (p *DeleteHealth) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func NewDeleteHealthRoom(roomID types.RoomID) DeleteHealthRoom {
+	return DeleteHealthRoom{
+		RoomID: roomID,
+	}
+}
+
+func (p *DeleteHealthRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
 	select {
 	case <-ctx.Done():
 		return errors.ErrContextCancelled

@@ -46,6 +46,7 @@ type Factory interface {
 type Connection interface {
 	Write(ctx context.Context, p []byte) error
 	Read(ctx context.Context) ([]byte, error)
+	io.Closer
 }
 
 type Interceptor interface {

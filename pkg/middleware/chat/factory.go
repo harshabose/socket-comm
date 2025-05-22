@@ -59,4 +59,12 @@ func (f *InterceptorFactory) NewInterceptor(ctx context.Context, id string, regi
 		writeProcessMessages: message.NewDefaultRegistry(),
 		states:               state.NewManager(),
 	}
+
+	for _, option := range f.options {
+		if err := option(i); err != nil {
+			return nil, err
+		}
+	}
+
+	return i, nil
 }

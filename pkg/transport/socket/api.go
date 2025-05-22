@@ -5,7 +5,6 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/transport/types"
 )
 
 type API struct {
@@ -43,13 +42,8 @@ func NewAPI(options ...APIOption) (*API, error) {
 
 // TODO: MAKE REGISTRIES TO NON POINTERS
 
-func (a *API) NewSocket(ctx context.Context, id types.SocketID, options ...Option) (*Socket, error) {
-	s := &Socket{
-		ID:              id,
-		settings:        NewDefaultSettings(),
-		messageRegistry: a.messagesRegistry,
-		ctx:             ctx,
-	}
+func (a *API) NewSocket(ctx context.Context, options ...Option) (*Socket, error) {
+	s := NewSocket(NewDefaultSettings(), a.messagesRegistry)
 
 	interceptors, err := a.interceptorRegistry.Build(s.ctx, string(s.ID))
 	if err != nil {

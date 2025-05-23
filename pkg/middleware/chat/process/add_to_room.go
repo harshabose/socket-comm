@@ -3,9 +3,8 @@ package process
 import (
 	"context"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -15,21 +14,21 @@ type AddToRoom struct {
 	AsyncProcess
 }
 
-func NewAddToRoom(roomID types.RoomID) interfaces.CanBeProcessed {
+func NewAddToRoom(roomID types.RoomID) interceptor.CanBeProcessed {
 	return &AddToRoom{
 		RoomID: roomID,
 	}
 }
 
 // Process needs room processor
-func (p *AddToRoom) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
+func (p *AddToRoom) Process(ctx context.Context, processor interceptor.CanProcess, s interceptor.State) error {
 	select {
 	case <-ctx.Done():
-		return errors.ErrContextCancelled
+		return interceptor.ErrContextCancelled
 	default:
 		r, ok := processor.(interfaces.CanAdd)
 		if !ok {
-			return errors.ErrInterfaceMisMatch
+			return interceptor.ErrInterfaceMisMatch
 		}
 
 		return r.Add(p.RoomID, s)

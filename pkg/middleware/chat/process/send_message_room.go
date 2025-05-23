@@ -3,21 +3,20 @@ package process
 import (
 	"context"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
 type SendMessageRoom struct {
-	RoomID         types.RoomID   `json:"room_id"`
-	ClientID       types.ClientID `json:"client_id"`
+	RoomID         types.RoomID         `json:"room_id"`
+	ClientID       interceptor.ClientID `json:"client_id"`
 	messageFactory func() (message.Message, error)
 	AsyncProcess
 }
 
-func NewSendMessageBetweenParticipantsInRoom(roomID types.RoomID, clientID types.ClientID, messageFactory func() (message.Message, error)) *SendMessageRoom {
+func NewSendMessageBetweenParticipantsInRoom(roomID types.RoomID, clientID interceptor.ClientID, messageFactory func() (message.Message, error)) *SendMessageRoom {
 	return &SendMessageRoom{
 		RoomID:         roomID,
 		ClientID:       clientID,
@@ -25,14 +24,14 @@ func NewSendMessageBetweenParticipantsInRoom(roomID types.RoomID, clientID types
 	}
 }
 
-func (p *SendMessageRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func (p *SendMessageRoom) Process(ctx context.Context, processor interceptor.CanProcess, _ interceptor.State) error {
 	select {
 	case <-ctx.Done():
-		return errors.ErrContextCancelled
+		return interceptor.ErrContextCancelled
 	default:
 		w, ok := processor.(interfaces.CanWriteRoomMessage)
 		if !ok {
-			return errors.ErrInterfaceMisMatch
+			return interceptor.ErrInterfaceMisMatch
 		}
 
 		msg, err := p.messageFactory()

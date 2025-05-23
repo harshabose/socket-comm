@@ -3,10 +3,8 @@ package process
 import (
 	"context"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 )
 
 type SendMessage struct {
@@ -20,15 +18,15 @@ func NewSendMessage(factory func() (message.Message, error)) *SendMessage {
 	}
 }
 
-func (p *SendMessage) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
+func (p *SendMessage) Process(ctx context.Context, _ interceptor.CanProcess, s interceptor.State) error {
 	select {
 	case <-ctx.Done():
-		return errors.ErrContextCancelled
+		return interceptor.ErrContextCancelled
 	default:
 		msg, err := p.factory()
 		if err != nil {
 			return err
 		}
-		return s.Write(msg)
+		return s.Write(ctx, msg)
 	}
 }

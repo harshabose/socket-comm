@@ -6,7 +6,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -46,7 +45,7 @@ func (m *SuccessCreateRoom) GetProtocol() message.Protocol {
 func (m *SuccessCreateRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
 	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInvalidInterceptor
+		return interceptor.ErrInvalidInterceptor
 	}
 
 	// NOTE: INTENTIONALLY EMPTY

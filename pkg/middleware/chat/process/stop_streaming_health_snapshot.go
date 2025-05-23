@@ -3,9 +3,8 @@ package process
 import (
 	"context"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -20,14 +19,14 @@ func NewStopStreamingHealthSnapshots(roomid types.RoomID) StopStreamingHealthSna
 	}
 }
 
-func (p *StopStreamingHealthSnapshots) Process(ctx context.Context, processor interfaces.Processor, s *state.State) error {
+func (p *StopStreamingHealthSnapshots) Process(ctx context.Context, processor interceptor.CanProcess, s interceptor.State) error {
 	select {
 	case <-ctx.Done():
 		return nil
 	default:
 		h, ok := processor.(interfaces.CanRemoveHealthSnapshotStreamer)
 		if !ok {
-			return errors.ErrInterfaceMisMatch
+			return interceptor.ErrInterfaceMisMatch
 		}
 
 		return h.RemoveHealthSnapshotStreamer(p.Roomid, s)

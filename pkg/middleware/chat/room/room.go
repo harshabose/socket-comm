@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
 type Room struct {
 	// NOTE: MAYBE A CONFIG FOR ROOM?
 	roomid          types.RoomID
-	allowed         []types.ClientID
-	participants    map[types.ClientID]*state.State
+	allowed         []interceptor.ClientID
+	participants    map[interceptor.ClientID]interceptor.State
 	ttl             time.Duration
 	isHealthTracked bool
 	cancel          context.CancelFunc
@@ -26,7 +26,7 @@ type Room struct {
 // UPDATE: YES
 // TODO: ADD SOME VALIDATION BEFORE CREATING THE ROOM
 
-func NewRoom(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl time.Duration) *Room {
+func NewRoom(ctx context.Context, id types.RoomID, allowed []interceptor.ClientID, ttl time.Duration) *Room {
 	ctx2, cancel := context.WithTimeout(ctx, ttl)
 	return &Room{
 		ctx:          ctx2,
@@ -34,7 +34,7 @@ func NewRoom(ctx context.Context, id types.RoomID, allowed []types.ClientID, ttl
 		ttl:          ttl,
 		roomid:       id,
 		allowed:      allowed,
-		participants: make(map[types.ClientID]*state.State),
+		participants: make(map[interceptor.ClientID]interceptor.State),
 	}
 }
 
@@ -50,7 +50,7 @@ func (r *Room) TTL() time.Duration {
 	return r.ttl
 }
 
-func (r *Room) Add(roomid types.RoomID, s *state.State) error {
+func (r *Room) Add(roomid types.RoomID, s interceptor.State) error {
 	if roomid != r.roomid {
 		return errors.ErrWrongRoom
 	}
@@ -62,7 +62,7 @@ func (r *Room) Add(roomid types.RoomID, s *state.State) error {
 
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while adding client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while adding client to room. client id: %s; room id: %s; err: %s", id, r.roomid, interceptor.ErrContextCancelled.Error())
 	default:
 		if !r.isAllowed(id) {
 			return fmt.Errorf("error while adding client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowed.Error())
@@ -77,7 +77,7 @@ func (r *Room) Add(roomid types.RoomID, s *state.State) error {
 	}
 }
 
-func (r *Room) isAllowed(id types.ClientID) bool {
+func (r *Room) isAllowed(id interceptor.ClientID) bool {
 	select {
 	case <-r.ctx.Done():
 		return false
@@ -96,7 +96,7 @@ func (r *Room) isAllowed(id types.ClientID) bool {
 	}
 }
 
-func (r *Room) forEachBoolean(f func(id types.ClientID) bool, ids ...types.ClientID) bool {
+func (r *Room) forEachBoolean(f func(id interceptor.ClientID) bool, ids ...interceptor.ClientID) bool {
 	if len(ids) == 0 {
 		return false
 	}
@@ -110,7 +110,7 @@ func (r *Room) forEachBoolean(f func(id types.ClientID) bool, ids ...types.Clien
 	return true
 }
 
-func (r *Room) Remove(roomid types.RoomID, s *state.State) error {
+func (r *Room) Remove(roomid types.RoomID, s interceptor.State) error {
 	if roomid != r.roomid {
 		return errors.ErrWrongRoom
 	}
@@ -122,7 +122,7 @@ func (r *Room) Remove(roomid types.RoomID, s *state.State) error {
 
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while removing client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while removing client to room. client id: %s; room id: %s; err: %s", id, r.roomid, interceptor.ErrContextCancelled.Error())
 	default:
 		if !r.isAllowed(id) {
 			return fmt.Errorf("error while removing client to room. client id: %s; room id: %s; err: %s", id, r.roomid, errors.ErrClientNotAllowed.Error())
@@ -137,7 +137,7 @@ func (r *Room) Remove(roomid types.RoomID, s *state.State) error {
 	}
 }
 
-func (r *Room) isParticipant(id types.ClientID) bool {
+func (r *Room) isParticipant(id interceptor.ClientID) bool {
 	select {
 	case <-r.ctx.Done():
 		return false
@@ -147,10 +147,10 @@ func (r *Room) isParticipant(id types.ClientID) bool {
 	}
 }
 
-func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
+func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from interceptor.ClientID, tos ...interceptor.ClientID) error {
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while sending message to peer in room; err: %s", errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while sending message to peer in room; err: %s", interceptor.ErrContextCancelled.Error())
 	default:
 		if roomid != r.roomid {
 			return errors.ErrWrongRoom
@@ -169,7 +169,7 @@ func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from t
 		}
 
 		for _, to := range tos {
-			if err := r.participants[to].Write(msg); err != nil {
+			if err := r.participants[to].Write(r.ctx, msg); err != nil {
 				return fmt.Errorf("error while sending message to peer in room; err: %s", err.Error())
 			}
 		}
@@ -181,7 +181,7 @@ func (r *Room) WriteRoomMessage(roomid types.RoomID, msg message.Message, from t
 func (r *Room) StartHealthTracking(roomid types.RoomID) error {
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while marking room as health tracked. room id: %s; err: %s", roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while marking room as health tracked. room id: %s; err: %s", roomid, interceptor.ErrContextCancelled.Error())
 	default:
 		if roomid != r.roomid {
 			return errors.ErrWrongRoom
@@ -203,7 +203,7 @@ func (r *Room) IsRoomMarkedForHealthTracking() bool {
 func (r *Room) UnMarkRoomForHealthTracking() error {
 	select {
 	case <-r.ctx.Done():
-		return fmt.Errorf("error while unmarking room as health tracked. room id: %s; err: %s", r.roomid, errors.ErrContextCancelled.Error())
+		return fmt.Errorf("error while unmarking room as health tracked. room id: %s; err: %s", r.roomid, interceptor.ErrContextCancelled.Error())
 	default:
 		if !r.IsRoomMarkedForHealthTracking() {
 			return fmt.Errorf("room with id %s is not health tracked", r.roomid)
@@ -214,26 +214,26 @@ func (r *Room) UnMarkRoomForHealthTracking() error {
 	}
 }
 
-func (r *Room) GetParticipants() []types.ClientID {
+func (r *Room) GetParticipants() []interceptor.ClientID {
 	select {
 	case <-r.ctx.Done():
-		return make([]types.ClientID, 0) // EMPTY LIST
+		return make([]interceptor.ClientID, 0) // EMPTY LIST
 	default:
-		clients := make([]types.ClientID, 0)
-		for id, _ := range r.participants {
+		clients := make([]interceptor.ClientID, 0)
+		for id := range r.participants {
 			clients = append(clients, id)
 		}
 		return clients
 	}
 }
 
-func (r *Room) GetAllowed() []types.ClientID {
+func (r *Room) GetAllowed() []interceptor.ClientID {
 	return r.allowed
 }
 
 func (r *Room) Close() error {
 	r.cancel()
-	r.participants = make(map[types.ClientID]*state.State)
-	r.allowed = make([]types.ClientID, 0)
+	r.participants = make(map[interceptor.ClientID]interceptor.State)
+	r.allowed = make([]interceptor.ClientID, 0)
 	return nil
 }

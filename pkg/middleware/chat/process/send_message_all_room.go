@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/harshabose/socket-comm/internal/util"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -28,14 +27,14 @@ func NewSendMessageToAllParticipantsInRoom(roomid types.RoomID, msgFactory func(
 }
 
 // Process needs Room processor to be passed in.
-func (p *SendMessageToAllParticipantsInRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func (p *SendMessageToAllParticipantsInRoom) Process(ctx context.Context, processor interceptor.CanProcess, _ interceptor.State) error {
 	select {
 	case <-ctx.Done():
-		return errors.ErrContextCancelled
+		return interceptor.ErrContextCancelled
 	default:
 		r, ok := processor.(interfaces.CanGetRoom)
 		if !ok {
-			return errors.ErrInterfaceMisMatch
+			return interceptor.ErrInterfaceMisMatch
 		}
 
 		room, err := r.GetRoom(p.Roomid)

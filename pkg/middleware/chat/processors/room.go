@@ -6,13 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/messages"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/room"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -20,7 +18,7 @@ type roomSession struct {
 	// NOTE: AS OF NOW, I AM MANAGING THE ROOM-DELETION AND HEALTH-TRACKING LIKE THIS;
 	// NOTE: I AM NOT SURE IF THIS IS THE RIGHT WAY OR NOT
 	room                                        *room.Room
-	deletionWaiter, healthTrackingRequestSender interfaces.CanBeProcessedBackground
+	deletionWaiter, healthTrackingRequestSender interceptor.CanBeProcessedBackground
 }
 
 type RoomManager struct {
@@ -36,7 +34,7 @@ func NewRoomProcessor(ctx context.Context) *RoomManager {
 	}
 }
 
-func (m *RoomManager) Add(id types.RoomID, s *state.State) error {
+func (m *RoomManager) Add(id types.RoomID, s interceptor.State) error {
 	r, err := m.GetRoom(id)
 	if err != nil {
 		return err
@@ -45,7 +43,7 @@ func (m *RoomManager) Add(id types.RoomID, s *state.State) error {
 	return r.Add(id, s)
 }
 
-func (m *RoomManager) Remove(id types.RoomID, s *state.State) error {
+func (m *RoomManager) Remove(id types.RoomID, s interceptor.State) error {
 	r, err := m.GetRoom(id)
 	if err != nil {
 		return err
@@ -65,7 +63,7 @@ func (m *RoomManager) Remove(id types.RoomID, s *state.State) error {
 // Returns:
 //   - *room.Room: pointer to the newly created room
 //   - error: nil if successful, ErrRoomAlreadyExists if room already exists
-func (m *RoomManager) CreateRoom(id types.RoomID, allowed []types.ClientID, ttl time.Duration) (*room.Room, error) {
+func (m *RoomManager) CreateRoom(id types.RoomID, allowed []interceptor.ClientID, ttl time.Duration) (*room.Room, error) {
 	if m.exists(id) {
 		return nil, fmt.Errorf("error while creating r with id %s; err: %s", id, errors.ErrRoomAlreadyExists)
 	}
@@ -101,7 +99,12 @@ func (m *RoomManager) exists(id types.RoomID) bool {
 //
 // Returns:
 //   - error: nil if successful, ErrRoomNotFound if room does not exist, or other errors if marking fails
-func (m *RoomManager) StartHealthTracking(id types.RoomID, interval time.Duration) error {
+func (m *RoomManager) StartHealthTracking(id types.RoomID, interval time.Duration, _p interceptor.CanBeProcessedBackground) error {
+	p, ok := _p.(*process.SendMessageStreamRoomToAllParticipants)
+	if !ok {
+		return interceptor.ErrInterfaceMisMatch
+	}
+
 	if interval <= 0 {
 		return fmt.Errorf("health tracking interval must be positive, got: %v", interval)
 	}
@@ -119,12 +122,16 @@ func (m *RoomManager) StartHealthTracking(id types.RoomID, interval time.Duratio
 		return fmt.Errorf("health tracking interval too large (maximum %v = 10%% of TTL), got: %v", r.TTL()/10, interval)
 	}
 
+	p.SetInterval(interval)
+
 	if err := r.StartHealthTracking(id); err != nil {
 		return err
 	}
 
-	m.rooms[id].healthTrackingRequestSender = process.NewSendMessageStreamToAllParticipants(
-		m.ctx, messages.NewRequestHealthFactory(id), id, interval, r.TTL()).ProcessBackground(nil, m, nil)
+	// m.rooms[id].healthTrackingRequestSender = process.NewSendMessageStreamToAllParticipants(
+	// 	m.ctx, messages.NewRequestHealthFactory(id), id, interval, r.TTL()).ProcessBackground(nil, m, nil)
+
+	m.rooms[id].healthTrackingRequestSender = p.ProcessBackground(nil, m, nil)
 
 	return nil
 }
@@ -188,7 +195,7 @@ func (m *RoomManager) DeleteRoom(id types.RoomID) error {
 	return nil
 }
 
-func (m *RoomManager) WriteRoomMessage(roomid types.RoomID, msg message.Message, from types.ClientID, tos ...types.ClientID) error {
+func (m *RoomManager) WriteRoomMessage(roomid types.RoomID, msg message.Message, from interceptor.ClientID, tos ...interceptor.ClientID) error {
 	r, err := m.GetRoom(roomid)
 	if err != nil {
 		return err
@@ -197,10 +204,10 @@ func (m *RoomManager) WriteRoomMessage(roomid types.RoomID, msg message.Message,
 	return r.WriteRoomMessage(roomid, msg, from, tos...)
 }
 
-func (m *RoomManager) Process(ctx context.Context, process interfaces.CanBeProcessed, state *state.State) error {
+func (m *RoomManager) Process(ctx context.Context, process interceptor.CanBeProcessed, state interceptor.State) error {
 	return process.Process(ctx, m, state)
 }
 
-func (m *RoomManager) ProcessBackground(ctx context.Context, process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
+func (m *RoomManager) ProcessBackground(ctx context.Context, process interceptor.CanBeProcessedBackground, state interceptor.State) interceptor.CanBeProcessedBackground {
 	return process.ProcessBackground(ctx, m, state)
 }

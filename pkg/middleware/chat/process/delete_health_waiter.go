@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -25,10 +24,10 @@ func NewDeleteHealthWaiter(ctx context.Context, roomid types.RoomID, ttl time.Du
 	}
 }
 
-func (p *DeleteHealthWaiter) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func (p *DeleteHealthWaiter) Process(ctx context.Context, processor interceptor.CanProcess, _ interceptor.State) error {
 	d, ok := processor.(interfaces.CanDeleteHealth)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	timer := time.NewTimer(p.TTL)
@@ -37,20 +36,12 @@ func (p *DeleteHealthWaiter) Process(ctx context.Context, processor interfaces.P
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.ErrContextCancelled
+			return interceptor.ErrContextCancelled
 		case <-timer.C:
-			if err := p.process(d); err != nil {
+			if err := d.DeleteHealth(p.RoomID); err != nil {
 				return fmt.Errorf("error while processing DeleteHealthWaiter process; err: %s", err.Error())
 			}
 			return nil
 		}
 	}
-}
-
-func (p *DeleteHealthWaiter) process(d interfaces.CanDeleteHealth) error {
-	if err := d.DeleteHealth(p.RoomID); err != nil {
-		return err
-	}
-
-	return nil
 }

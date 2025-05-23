@@ -6,7 +6,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
@@ -24,7 +23,7 @@ func (m *LeaveRoom) GetProtocol() message.Protocol {
 func (m *LeaveRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	s, err := i.GetState(connection)
@@ -33,12 +32,9 @@ func (m *LeaveRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor,
 	}
 
 	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		_ = process.NewSendMessage(NewFailLeaveRoomMessageFactory(m.RoomID, err)).Process(ctx, nil, s)
 		return err
 	}
 
-	if err := process.NewSendMessage(NewSuccessLeaveRoomMessageFactory(m.RoomID)).Process(ctx, nil, s); err != nil {
-		return err
-	}
-
-	return nil
+	return process.NewSendMessageToAllParticipantsInRoom(m.RoomID, NewSuccessLeaveRoomMessageFactory(m.RoomID, interceptor.ClientID(m.GetCurrentHeader().Sender))).Process(ctx, nil, s)
 }

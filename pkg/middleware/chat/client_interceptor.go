@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
 type ClientInterceptor struct {
 	*commonInterceptor
-	Health interfaces.Processor
+	Health interceptor.Processor
 }
 
 func (i *ClientInterceptor) BindSocketConnection(connection interceptor.Connection, writer interceptor.Writer, reader interceptor.Reader) (interceptor.Writer, interceptor.Reader, error) {

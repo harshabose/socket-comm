@@ -7,13 +7,12 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var RequestHealthProtocol message.Protocol = "room:request_health"
+const RequestHealthProtocol message.Protocol = "room:request_health"
 
 // SendHealthStats is sent by the server to request the health from a client.
 // The client then responds with UpdateHealthStat with the health.Stat embedded.
@@ -50,9 +49,9 @@ func (m *SendHealthStats) GetProtocol() message.Protocol {
 }
 
 func (m *SendHealthStats) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	s, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	ss, err := s.GetState(connection)
@@ -64,9 +63,9 @@ func (m *SendHealthStats) ReadProcess(ctx context.Context, _i interceptor.Interc
 }
 
 func (m *SendHealthStats) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	s, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	ss, err := s.GetState(connection)

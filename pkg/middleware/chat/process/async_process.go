@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 )
 
 // AsyncProcess is intended to be embedded in a process (can be message-tagged) to enable async capabilities
 // NOTE: TO EMBED THIS, THE EMBEDDER NEEDS TO IMPLEMENT interfaces.CanBeProcessed. THIS CONTRACT IS LEFT TO THE DEVELOPER TO FULFILL
 type AsyncProcess struct {
-	interfaces.CanBeProcessed
+	interceptor.CanBeProcessed
 	err    error
 	done   chan struct{}
 	ctx    context.Context
@@ -28,10 +27,10 @@ func ManualAsyncProcessInitialisation(ctx context.Context, cancel context.Cancel
 	}
 }
 
-func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interfaces.Processor, s *state.State) interfaces.CanBeProcessedBackground {
+func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interceptor.CanProcessBackground, s interceptor.State) interceptor.CanBeProcessedBackground {
 	if p.CanBeProcessed == nil {
 		fmt.Println("WARNING: AsyncProcess.CanBeProcessed is nil; this is not allowed")
-		// p.CanBeProcessed =
+		return nil
 	}
 	if p.done == nil { // ONLY POSSIBLE WHEN NOT ManualAsyncProcessInitialisation-ed
 		p.done = make(chan struct{})
@@ -47,7 +46,7 @@ func (p *AsyncProcess) ProcessBackground(ctx context.Context, _p interfaces.Proc
 	}
 
 	go func() {
-		err := p.Process(p.ctx, _p, s)
+		err := p.Process(p.ctx, _p.(interceptor.CanProcess), s)
 		p.mux.Lock()
 		defer p.mux.Unlock()
 		defer p.cancel()

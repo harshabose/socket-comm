@@ -50,7 +50,7 @@ type Connection interface {
 }
 
 type Interceptor interface {
-	ID() string
+	ID() ClientID
 
 	Ctx() context.Context
 
@@ -90,12 +90,12 @@ func (f WriterFunc) Write(ctx context.Context, connection Connection, message me
 }
 
 type NoOpInterceptor struct {
-	iD              string
+	iD              ClientID
 	messageRegistry message.Registry
 	ctx             context.Context
 }
 
-func NewNoOpInterceptor(ctx context.Context, id string, registry message.Registry) NoOpInterceptor {
+func NewNoOpInterceptor(ctx context.Context, id ClientID, registry message.Registry) NoOpInterceptor {
 	return NoOpInterceptor{
 		ctx:             ctx,
 		iD:              id,
@@ -107,7 +107,7 @@ func (interceptor *NoOpInterceptor) Ctx() context.Context {
 	return interceptor.ctx
 }
 
-func (interceptor *NoOpInterceptor) ID() string {
+func (interceptor *NoOpInterceptor) ID() ClientID {
 	return interceptor.iD
 }
 

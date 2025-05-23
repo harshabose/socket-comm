@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 )
 
 type IdentInit struct {
@@ -16,8 +15,8 @@ func NewIdentInit() *IdentInit {
 	return &IdentInit{}
 }
 
-func (p *IdentInit) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
-	// TODO: SEND IDENT MESSAGE
+func (p *IdentInit) Process(ctx context.Context, _ interceptor.CanProcess, s interceptor.State) error {
+	// TODO: SEND IDENT MESSAGE // PROBLEM HERE AS PROCESS MODULE CANNOT IMPORT MESSAGE
 	if err := s.Write(nil); err != nil {
 		return err
 	}

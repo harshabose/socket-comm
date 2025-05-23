@@ -12,8 +12,6 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
@@ -67,7 +65,7 @@ func (m *UpdateHealthStat) GetProtocol() message.Protocol {
 func (m *UpdateHealthStat) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	s, err := i.GetState(connection)
@@ -78,10 +76,10 @@ func (m *UpdateHealthStat) ReadProcess(ctx context.Context, _i interceptor.Inter
 	return i.Health.Process(ctx, m, s)
 }
 
-func (m *UpdateHealthStat) WriteProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+func (m *UpdateHealthStat) WriteProcess(_ context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
+	s, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	ss, err := s.GetState(connection)

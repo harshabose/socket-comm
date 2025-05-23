@@ -1,13 +1,12 @@
 package messages
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 )
 
 var (
@@ -23,10 +22,10 @@ func (m *Ident) GetProtocol() message.Protocol {
 	return IdentProtocol
 }
 
-func (m *Ident) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+func (m *Ident) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
+	s, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return fmt.Errorf("error while processing 'Ident' message; err: %s", errors.ErrInterfaceMisMatch.Error())
+		return fmt.Errorf("error while processing 'Ident' message; err: %s", interceptor.ErrInterfaceMisMatch.Error())
 	}
 
 	ss, err := s.GetState(connection)
@@ -34,11 +33,11 @@ func (m *Ident) ReadProcess(_i interceptor.Interceptor, connection interceptor.C
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	if err := ss.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
+	if err := ss.SetClientID(interceptor.ClientID(m.CurrentHeader.Sender)); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	if err := ss.Write(&IdentResponse{}); err != nil {
+	if err := ss.Write(ctx, &IdentResponse{}); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
@@ -56,9 +55,9 @@ func (m *IdentResponse) GetProtocol() message.Protocol {
 }
 
 func (m *IdentResponse) ReadProcess(_i interceptor.Interceptor, connection interceptor.Connection) error {
-	s, ok := _i.(interfaces.CanGetState)
+	s, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return fmt.Errorf("error while processing 'Ident' message; err: %s", errors.ErrInterfaceMisMatch.Error())
+		return fmt.Errorf("error while processing 'Ident' message; err: %s", interceptor.ErrInterfaceMisMatch.Error())
 	}
 
 	ss, err := s.GetState(connection)
@@ -66,7 +65,7 @@ func (m *IdentResponse) ReadProcess(_i interceptor.Interceptor, connection inter
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 
-	if err := ss.SetClientID(types.ClientID(m.CurrentHeader.Sender)); err != nil {
+	if err := ss.SetClientID(interceptor.ClientID(m.CurrentHeader.Sender)); err != nil {
 		return fmt.Errorf("error while processing 'Ident' message; err: %s", err.Error())
 	}
 

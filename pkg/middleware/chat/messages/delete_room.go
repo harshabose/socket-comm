@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
-var DeleteRoomProtocol message.Protocol = "room:delete_room"
+const DeleteRoomProtocol message.Protocol = "room:delete_room"
 
 type DeleteRoom struct {
 	interceptor.BaseMessage
@@ -24,7 +23,7 @@ func (m *DeleteRoom) GetProtocol() message.Protocol {
 func (m *DeleteRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	s, err := i.GetState(connection)
@@ -33,6 +32,7 @@ func (m *DeleteRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor
 	}
 
 	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		_ = process.NewSendMessage(NewFailDeleteRoomMessageFactory(m.RoomID, err)).Process(ctx, nil, s)
 		return err
 	}
 

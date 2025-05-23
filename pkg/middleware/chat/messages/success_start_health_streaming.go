@@ -16,7 +16,7 @@ type SuccessStartHealthStreaming struct {
 	process.CreateHealthRoom
 }
 
-func NewSuccessStartHealthStreamingMessage(id types.RoomID, allowed []types.ClientID, ttl time.Duration) (*SuccessStartHealthStreaming, error) {
+func NewSuccessStartHealthStreamingMessage(id types.RoomID, allowed []interceptor.ClientID, ttl time.Duration) (*SuccessStartHealthStreaming, error) {
 	msg := &SuccessStartHealthStreaming{
 		CreateHealthRoom: process.NewCreateHealthRoom(id, allowed, ttl),
 	}
@@ -29,7 +29,7 @@ func NewSuccessStartHealthStreamingMessage(id types.RoomID, allowed []types.Clie
 	return msg, nil
 }
 
-func NewSuccessStartHealthStreamingMessageFactory(id types.RoomID, allowed []types.ClientID, ttl time.Duration) func() (message.Message, error) {
+func NewSuccessStartHealthStreamingMessageFactory(id types.RoomID, allowed []interceptor.ClientID, ttl time.Duration) func() (message.Message, error) {
 	return func() (message.Message, error) {
 		return NewSuccessStartHealthStreamingMessage(id, allowed, ttl)
 	}

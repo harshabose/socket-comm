@@ -4,20 +4,19 @@ import (
 	"context"
 	"time"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
 type CreateHealthRoom struct {
-	RoomID  types.RoomID     `json:"room_id"`
-	Allowed []types.ClientID `json:"allowed"`
-	TTL     time.Duration    `json:"ttl"`
+	RoomID  types.RoomID           `json:"room_id"`
+	Allowed []interceptor.ClientID `json:"allowed"`
+	TTL     time.Duration          `json:"ttl"`
 	AsyncProcess
 }
 
-func NewCreateHealthRoom(id types.RoomID, allowed []types.ClientID, ttl time.Duration) CreateHealthRoom {
+func NewCreateHealthRoom(id types.RoomID, allowed []interceptor.ClientID, ttl time.Duration) CreateHealthRoom {
 	return CreateHealthRoom{
 		RoomID:  id,
 		Allowed: allowed,
@@ -25,14 +24,14 @@ func NewCreateHealthRoom(id types.RoomID, allowed []types.ClientID, ttl time.Dur
 	}
 }
 
-func (p *CreateHealthRoom) Process(ctx context.Context, processor interfaces.Processor, _ *state.State) error {
+func (p *CreateHealthRoom) Process(ctx context.Context, processor interceptor.CanProcess, _ interceptor.State) error {
 	select {
 	case <-ctx.Done():
-		return errors.ErrContextCancelled
+		return interceptor.ErrContextCancelled
 	default:
 		r, ok := processor.(interfaces.CanCreateHealth)
 		if !ok {
-			return errors.ErrInterfaceMisMatch
+			return interceptor.ErrInterfaceMisMatch
 		}
 
 		_, err := r.CreateHealth(p.RoomID, p.Allowed, p.TTL)

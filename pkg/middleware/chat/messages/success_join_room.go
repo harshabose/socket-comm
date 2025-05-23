@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessJoinRoomProtocol message.Protocol = "room:success_join_room"
+const SuccessJoinRoomProtocol message.Protocol = "room:success_join_room"
 
 // SuccessJoinRoom is the message sent by the server to the clients (including the requested client and roommates)
 // when the client joins a room successfully.
@@ -18,12 +17,14 @@ var SuccessJoinRoomProtocol message.Protocol = "room:success_join_room"
 // This marks the end of the JoinRoom topic.
 type SuccessJoinRoom struct {
 	interceptor.BaseMessage
-	RoomID types.RoomID `json:"room_id"`
+	RoomID   types.RoomID         `json:"room_id"`
+	ClientID interceptor.ClientID `json:"client_id"`
 }
 
-func NewSuccessJoinRoomMessage(id types.RoomID) (*SuccessJoinRoom, error) {
+func NewSuccessJoinRoomMessage(id types.RoomID, clientID interceptor.ClientID) (*SuccessJoinRoom, error) {
 	msg := &SuccessJoinRoom{
-		RoomID: id,
+		RoomID:   id,
+		ClientID: clientID,
 	}
 
 	bmsg, err := interceptor.NewBaseMessage(message.NoneProtocol, nil, msg)
@@ -35,9 +36,9 @@ func NewSuccessJoinRoomMessage(id types.RoomID) (*SuccessJoinRoom, error) {
 	return msg, nil
 }
 
-func NewSuccessJoinRoomMessageFactory(id types.RoomID) func() (message.Message, error) {
+func NewSuccessJoinRoomMessageFactory(id types.RoomID, clientID interceptor.ClientID) func() (message.Message, error) {
 	return func() (message.Message, error) {
-		return NewSuccessJoinRoomMessage(id)
+		return NewSuccessJoinRoomMessage(id, clientID)
 	}
 }
 
@@ -48,7 +49,7 @@ func (m *SuccessJoinRoom) GetProtocol() message.Protocol {
 func (m *SuccessJoinRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
 	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInvalidInterceptor
+		return interceptor.ErrInvalidInterceptor
 	}
 
 	// NOTE: INTENTIONALLY EMPTY

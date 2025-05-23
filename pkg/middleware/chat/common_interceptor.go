@@ -5,8 +5,6 @@ import (
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 )
 
@@ -73,7 +71,7 @@ func (i *commonInterceptor) InterceptSocketReader(reader interceptor.Reader) int
 
 		m, ok := msg.(interceptor.Message)
 		if !ok {
-			return msg, errors.ErrInterfaceMisMatch
+			return msg, interceptor.ErrInterfaceMisMatch
 		}
 
 		next, err := m.GetNext(i.readProcessMessages)
@@ -102,10 +100,10 @@ func (i *commonInterceptor) GetState(connection interceptor.Connection) (*state.
 	return i.states.GetState(connection)
 }
 
-func (i *commonInterceptor) Process(ctx context.Context, process interfaces.CanBeProcessed, state *state.State) error {
-	return process.Process(ctx, i, state)
+func (i *commonInterceptor) Process(ctx context.Context, process interceptor.CanBeProcessed, s interceptor.State) error {
+	return process.Process(ctx, i, s)
 }
 
-func (i *commonInterceptor) ProcessBackground(ctx context.Context, process interfaces.CanBeProcessedBackground, state *state.State) interfaces.CanBeProcessedBackground {
-	return process.ProcessBackground(ctx, i, state)
+func (i *commonInterceptor) ProcessBackground(ctx context.Context, process interceptor.CanBeProcessedBackground, s interceptor.State) interceptor.CanBeProcessedBackground {
+	return process.ProcessBackground(ctx, i, s)
 }

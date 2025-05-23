@@ -4,10 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 )
 
 type SendMessageStream struct {
@@ -23,7 +21,7 @@ func NewSendMessageStream(factory func() (message.Message, error), interval time
 	}
 }
 
-func (p *SendMessageStream) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
+func (p *SendMessageStream) Process(ctx context.Context, _ interceptor.CanProcess, s interceptor.State) error {
 	ticker := time.NewTicker(p.Interval)
 	defer ticker.Stop()
 
@@ -34,7 +32,7 @@ func (p *SendMessageStream) Process(ctx context.Context, _ interfaces.Processor,
 				return err
 			}
 		case <-ctx.Done():
-			return errors.ErrContextCancelled
+			return interceptor.ErrContextCancelled
 		}
 	}
 }

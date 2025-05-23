@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
@@ -30,8 +29,12 @@ func NewSendMessageStreamToAllParticipants(ctx context.Context, msgFactory func(
 	}
 }
 
+func (p *SendMessageStreamRoomToAllParticipants) SetInterval(interval time.Duration) {
+	p.interval = interval
+}
+
 // Process needs Room processor to be passed in.
-func (p *SendMessageStreamRoomToAllParticipants) Process(ctx context.Context, r interfaces.Processor, _ *state.State) error {
+func (p *SendMessageStreamRoomToAllParticipants) Process(ctx context.Context, r interceptor.CanProcess, _ interceptor.State) error {
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
 

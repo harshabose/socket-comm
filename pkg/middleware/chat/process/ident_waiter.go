@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/interfaces"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/state"
+	"github.com/harshabose/socket-comm/pkg/interceptor"
 )
 
 type IdentWaiterOptions func(*IdentWaiter)
@@ -29,14 +27,14 @@ type IdentWaiter struct {
 	AsyncProcess
 }
 
-func (p *IdentWaiter) Process(ctx context.Context, _ interfaces.Processor, s *state.State) error {
+func (p *IdentWaiter) Process(ctx context.Context, _ interceptor.CanProcess, s interceptor.State) error {
 	ticker := time.NewTicker(p.duration)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.ErrContextCancelled
+			return interceptor.ErrContextCancelled
 		case <-ticker.C:
 			if err := p.process(s); err == nil {
 				return nil
@@ -46,7 +44,7 @@ func (p *IdentWaiter) Process(ctx context.Context, _ interfaces.Processor, s *st
 	}
 }
 
-func (p *IdentWaiter) process(s *state.State) error {
+func (p *IdentWaiter) process(s interceptor.State) error {
 	_, err := s.GetClientID()
 	return err
 }

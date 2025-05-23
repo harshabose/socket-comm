@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
-var CreateRoomProtocol message.Protocol = "room:create_room"
+const CreateRoomProtocol message.Protocol = "room:create_room"
 
 // CreateRoom is the message sent by the client to the server when the client wants to create a room.
 // When received by the server, the server will create a room with the given room id and allowed clients.
@@ -29,7 +28,8 @@ func (m *CreateRoom) GetProtocol() message.Protocol {
 func (m *CreateRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor, connection interceptor.Connection) error {
 	i, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		// NOTE: CANNOT SEND FAIL MESSAGE AS STATE IS NOT DISCOVERED
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	s, err := i.GetState(connection)
@@ -38,6 +38,7 @@ func (m *CreateRoom) ReadProcess(ctx context.Context, _i interceptor.Interceptor
 	}
 
 	if err := i.Rooms.Process(ctx, m, s); err != nil {
+		_ = process.NewSendMessage(NewFailCreateRoomMessageFactory(m.RoomID, err)).Process(ctx, nil, s)
 		return err
 	}
 

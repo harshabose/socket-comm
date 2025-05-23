@@ -12,7 +12,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var GetHealthSnapshotProtocol message.Protocol = "chat:get_health_snapshot"
+const GetHealthSnapshotProtocol message.Protocol = "chat:get_health_snapshot"
 
 type StartStreamingHealthSnapshots struct {
 	interceptor.BaseMessage

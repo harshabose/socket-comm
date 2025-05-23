@@ -1,15 +1,17 @@
 package messages
 
 import (
+	"context"
 	"time"
 
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
+	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessStartHealthStreamingProtocol message.Protocol = "chat:success_start_health_streaming"
+const SuccessStartHealthStreamingProtocol message.Protocol = "chat:success_start_health_streaming"
 
 type SuccessStartHealthStreaming struct {
 	interceptor.BaseMessage
@@ -37,4 +39,18 @@ func NewSuccessStartHealthStreamingMessageFactory(id types.RoomID, allowed []int
 
 func (m *SuccessStartHealthStreaming) GetProtocol() message.Protocol {
 	return SuccessStartHealthStreamingProtocol
+}
+
+func (m *SuccessStartHealthStreaming) ReadProcess(ctx context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
+	i, ok := _i.(*chat.ClientInterceptor)
+	if !ok {
+		return interceptor.ErrInvalidInterceptor
+	}
+
+	if err := i.Health.Process(ctx, m, nil); err != nil {
+		return err
+	}
+
+	return nil
+	// NOTE: NO SUCCESS TRAIL MESSAGE
 }

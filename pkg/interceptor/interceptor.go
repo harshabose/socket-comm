@@ -9,6 +9,7 @@ import (
 
 type Registry struct {
 	factories []Factory
+	messages  message.Registry
 }
 
 func NewRegistry() *Registry {
@@ -21,14 +22,14 @@ func (registry *Registry) Register(factory Factory) {
 	registry.factories = append(registry.factories, factory)
 }
 
-func (registry *Registry) Build(ctx context.Context, id string) (Interceptor, error) {
+func (registry *Registry) Build(ctx context.Context, id ClientID) (Interceptor, error) {
 	if len(registry.factories) == 0 {
 		return &NoOpInterceptor{}, nil
 	}
 
 	interceptors := make([]Interceptor, 0)
 	for _, factory := range registry.factories {
-		interceptor, err := factory.NewInterceptor(ctx, id)
+		interceptor, err := factory.NewInterceptor(ctx, id, registry.messages)
 		if err != nil {
 			return nil, err
 		}
@@ -40,7 +41,7 @@ func (registry *Registry) Build(ctx context.Context, id string) (Interceptor, er
 }
 
 type Factory interface {
-	NewInterceptor(context.Context, string) (Interceptor, error)
+	NewInterceptor(context.Context, ClientID, message.Registry) (Interceptor, error)
 }
 
 type Connection interface {

@@ -9,7 +9,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
-var LeaveRoomProtocol message.Protocol = "room:leave_room"
+const LeaveRoomProtocol message.Protocol = "room:leave_room"
 
 type LeaveRoom struct {
 	interceptor.BaseMessage

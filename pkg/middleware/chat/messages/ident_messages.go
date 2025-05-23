@@ -9,7 +9,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 )
 
-var (
+const (
 	IdentProtocol         message.Protocol = "room:ident"
 	IdentResponseProtocol message.Protocol = "room:ident_response"
 )

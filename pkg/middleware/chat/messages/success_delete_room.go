@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessDeleteRoomProtocol message.Protocol = "room:success_delete_room"
+const SuccessDeleteRoomProtocol message.Protocol = "room:success_delete_room"
 
 type SuccessDeleteRoom struct {
 	interceptor.BaseMessage
@@ -44,7 +43,7 @@ func (m *SuccessDeleteRoom) GetProtocol() message.Protocol {
 func (m *SuccessDeleteRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
 	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	// NOTE: INTENTIONALLY EMPTY

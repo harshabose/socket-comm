@@ -9,7 +9,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessLeaveRoomProtocol message.Protocol = "room:success_leave_room"
+const SuccessLeaveRoomProtocol message.Protocol = "room:success_leave_room"
 
 type SuccessLeaveRoom struct {
 	interceptor.BaseMessage

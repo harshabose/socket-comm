@@ -9,7 +9,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessCreateRoomProtocol message.Protocol = "room:success_create_room"
+const SuccessCreateRoomProtocol message.Protocol = "room:success_create_room"
 
 // SuccessCreateRoom is the message sent by the server to the client after successful creation of the requested room.
 // This marks the end of the CreateRoom topic.

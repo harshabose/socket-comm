@@ -11,7 +11,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var ForwardMessageProtocol message.Protocol = "room:forward_message"
+const ForwardMessageProtocol message.Protocol = "room:forward_message"
 
 type ToForward struct {
 	interceptor.BaseMessage

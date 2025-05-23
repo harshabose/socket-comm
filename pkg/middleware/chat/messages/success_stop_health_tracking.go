@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessUnmarkRoomForHealthTrackingProtocol message.Protocol = "chat:success_untrack_health"
+const SuccessUnmarkRoomForHealthTrackingProtocol message.Protocol = "chat:success_untrack_health"
 
 type SuccessUnmarkRoomForHealthTracking struct {
 	interceptor.BaseMessage
@@ -41,10 +40,10 @@ func NewSuccessUntrackHealthInRoomMessageFactory(id types.RoomID) func() (messag
 	}
 }
 
-func (m *SuccessUnmarkRoomForHealthTracking) ReadProcess(ctx context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
+func (m *SuccessUnmarkRoomForHealthTracking) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
 	_, ok := _i.(*chat.ClientInterceptor)
 	if !ok {
-		return errors.ErrInvalidInterceptor
+		return interceptor.ErrInvalidInterceptor
 	}
 
 	// NOTE: INTENTIONALLY EMPTY

@@ -8,7 +8,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
 )
 
-var ForwardedMessageProtocol message.Protocol = "room:forwarded_message"
+const ForwardedMessageProtocol message.Protocol = "room:forwarded_message"
 
 type ForwardedMessage struct {
 	interceptor.BaseMessage

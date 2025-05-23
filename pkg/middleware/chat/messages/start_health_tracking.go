@@ -12,7 +12,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var MarkRoomForHealthTrackingProtocol message.Protocol = "chat:track_health"
+const MarkRoomForHealthTrackingProtocol message.Protocol = "chat:track_health"
 
 // StartHealthTracking is sent by an interested client (who wants the stats of the whole room) to start tracking the health status.
 // This does not send the stats data to the interested client; this just tells the server to track the data.

@@ -9,7 +9,7 @@ import (
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/process"
 )
 
-var StopStreamingHealthSnapshotProtocol message.Protocol = "chat:stop_streaming_health_snapshot"
+const StopStreamingHealthSnapshotProtocol message.Protocol = "chat:stop_streaming_health_snapshot"
 
 type StopStreamingHealthSnapshot struct {
 	interceptor.BaseMessage

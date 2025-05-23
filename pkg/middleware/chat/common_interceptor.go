@@ -41,7 +41,7 @@ func (i *commonInterceptor) InterceptSocketWriter(writer interceptor.Writer) int
 			return writer.Write(ctx, connection, msg)
 		}
 
-		next, err := m.GetNext(i.writeProcessMessages)
+		next, err := m.GetNext(i.GetMessageRegistry())
 		if err != nil {
 			return writer.Write(ctx, connection, msg)
 		}
@@ -74,7 +74,7 @@ func (i *commonInterceptor) InterceptSocketReader(reader interceptor.Reader) int
 			return msg, interceptor.ErrInterfaceMisMatch
 		}
 
-		next, err := m.GetNext(i.readProcessMessages)
+		next, err := m.GetNext(i.GetMessageRegistry())
 		if err != nil {
 			return msg, nil
 		}

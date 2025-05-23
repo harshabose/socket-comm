@@ -6,11 +6,10 @@ import (
 	"github.com/harshabose/socket-comm/pkg/interceptor"
 	"github.com/harshabose/socket-comm/pkg/message"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat"
-	"github.com/harshabose/socket-comm/pkg/middleware/chat/errors"
 	"github.com/harshabose/socket-comm/pkg/middleware/chat/types"
 )
 
-var SuccessTrackHealthInRoomProtocol message.Protocol = "chat:success_track_health"
+const SuccessTrackHealthInRoomProtocol message.Protocol = "chat:success_track_health"
 
 type SuccessTrackHealthInRoom struct {
 	interceptor.BaseMessage
@@ -43,7 +42,7 @@ func NewSuccessTrackHealthInRoomMessageFactory(id types.RoomID) func() (message.
 func (m *SuccessTrackHealthInRoom) ReadProcess(_ context.Context, _i interceptor.Interceptor, _ interceptor.Connection) error {
 	_, ok := _i.(*chat.ServerInterceptor)
 	if !ok {
-		return errors.ErrInterfaceMisMatch
+		return interceptor.ErrInterfaceMisMatch
 	}
 
 	// NOTE: INTENTIONALLY EMPTY
